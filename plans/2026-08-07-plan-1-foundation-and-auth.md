@@ -423,7 +423,7 @@ git commit -m "chore: scaffold Coterie app with XcodeGen"
 
 ---
 
-## Task 2: Supabase local stack & environment config
+## Task 2: Supabase local stack & environment config ✅ DONE
 
 **Repos:** `backend` (Steps 1) then `ios` (Steps 2–8). Each step says which.
 
@@ -436,7 +436,7 @@ git commit -m "chore: scaffold Coterie app with XcodeGen"
 **Interfaces:**
 - Produces: `AppEnvironment.current` → `{ supabaseURL: URL, supabaseAnonKey: String, name: String }`; `SupabaseClientProvider.make() -> SupabaseClient`.
 
-- [ ] **Step 1: Initialise and start local Supabase**
+- [x] **Step 1: Initialise and start local Supabase**
 
 Run from `coterie/backend`:
 ```bash
@@ -447,12 +447,21 @@ Expected: `supabase init` creates `backend/supabase/config.toml`; `make db` prin
 `API URL: http://127.0.0.1:54321` and an `anon key`. Copy the anon key
 (`make db-status` reprints it). Commit `backend/supabase/config.toml`.
 
-- [ ] **Step 2: Paste the anon key into both xcconfig files**
+`supabase init` defaults `project_id` to the directory name (`backend`), which names the
+local Docker containers. Change it to `coterie` so the containers are `supabase_*_coterie`
+and cannot collide with another project checked out in a folder also called `backend`:
+
+```toml
+project_id = "coterie"
+```
+Changing it after `supabase start` requires `supabase stop` then `make db` again.
+
+- [x] **Step 2: Paste the anon key into both xcconfig files**
 
 In the `ios` repo, replace `REPLACE_WITH_LOCAL_ANON_KEY` in `ios/Config/Debug.xcconfig` and
 `ios/Config/Release.xcconfig` with the key from Step 1, then run `make generate`.
 
-- [ ] **Step 3: Write the failing test for `AppEnvironment`**
+- [x] **Step 3: Write the failing test for `AppEnvironment`**
 
 `ios/CoterieTests/AppEnvironmentTests.swift`:
 ```swift
@@ -470,7 +479,7 @@ struct AppEnvironmentTests {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it fails**
+- [x] **Step 4: Run test to verify it fails**
 
 Run:
 ```bash
@@ -478,7 +487,7 @@ xcodebuild test -scheme Coterie -destination 'platform=iOS Simulator,name=iPhone
 ```
 Expected: FAIL — `cannot find 'AppEnvironment' in scope`.
 
-- [ ] **Step 5: Implement `AppEnvironment`**
+- [x] **Step 5: Implement `AppEnvironment`**
 
 `ios/Coterie/Core/Config/AppEnvironment.swift`:
 ```swift
@@ -508,7 +517,7 @@ Add the keys to Info.plist generation in `project.yml` under `targets.Coterie.se
 ```
 (already added in Task 1 Step 4 — confirm present). Re-run `xcodegen generate`.
 
-- [ ] **Step 6: Run test to verify it passes**
+- [x] **Step 6: Run test to verify it passes**
 
 Run:
 ```bash
@@ -516,7 +525,7 @@ xcodebuild test -scheme Coterie -destination 'platform=iOS Simulator,name=iPhone
 ```
 Expected: PASS.
 
-- [ ] **Step 7: Implement `SupabaseClientProvider`**
+- [x] **Step 7: Implement `SupabaseClientProvider`**
 
 `ios/Coterie/Core/Supabase/SupabaseClientProvider.swift`:
 ```swift
@@ -533,7 +542,7 @@ enum SupabaseClientProvider {
 }
 ```
 
-- [ ] **Step 8: Build and commit both repos**
+- [x] **Step 8: Build and commit both repos**
 
 Run from `coterie/ios`:
 ```bash
