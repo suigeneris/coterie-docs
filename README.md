@@ -7,9 +7,21 @@ Part of a three-repo project:
 
 | Repo | Contents |
 |---|---|
-| `coterie/ios` | SwiftUI app |
-| `coterie/backend` | Supabase schema, migrations, RLS, pgTAP tests |
-| `coterie/docs` | this repo |
+| [`coterie-ios`](https://github.com/suigeneris/coterie-ios) | SwiftUI app |
+| [`coterie-backend`](https://github.com/suigeneris/coterie-backend) | Supabase schema, migrations, RLS, pgTAP tests |
+| [`coterie-docs`](https://github.com/suigeneris/coterie-docs) | this repo |
+
+## Getting all three
+
+The GitHub repos are `coterie-*` prefixed; locally they sit unprefixed inside a plain
+`coterie/` container folder (which is not itself a repo):
+
+```bash
+mkdir -p ~/Developer/coterie && cd ~/Developer/coterie
+git clone git@github.com:suigeneris/coterie-docs.git    docs
+git clone git@github.com:suigeneris/coterie-ios.git     ios
+git clone git@github.com:suigeneris/coterie-backend.git backend
+```
 
 ## Layout
 ```

@@ -1938,5 +1938,6 @@ git commit -m "feat: DI container, coordinator, and root routing"
 ## Notes / Known Follow-ups
 - **CI + QA/prod environments:** a short infra task should run before Plan 2 execution — it's an enabler, not a feature, so it lives outside the feature plans. With three repos this is now two pipelines: `ios` running `make test`, `backend` running `make db-test`. Also create QA/prod Supabase projects with their own keys.
 - **Cross-repo drift:** the schema in `backend` and the DTOs in `ios` can no longer change in one commit. Task 3 (migration) and Tasks 4/6/8 (DTOs and repositories) straddle that boundary — land the migration first, then the client change. When the Android client arrives, `backend` is the single source of truth for both.
-- **Remotes:** none of the three repos has a remote yet. Create them before Plan 2 so the split is actually backed up.
+- **Remotes:** all three repos are private under `suigeneris` (`coterie-docs`, `coterie-ios`, `coterie-backend`). Each repo pins `user.name`/`user.email` locally to `suigeneris <jona2k5@yahoo.com>` — check it before the first commit in any fresh clone.
+- **CI scopes:** the `suigeneris` token has no `workflow` scope, so pushing `.github/workflows/` will be rejected. Run `gh auth refresh -h github.com -s workflow` as part of the CI task.
 - **Secrets:** the local anon key is safe to commit (local-only). Real QA/prod keys must come from CI secrets / per-env xcconfig excluded from git — enforce when those environments are created.
