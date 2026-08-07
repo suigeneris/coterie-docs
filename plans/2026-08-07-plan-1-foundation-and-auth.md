@@ -19,6 +19,8 @@
 - **Testing:** Swift Testing (`@Test`/`#expect`); view-model tests run against mock repositories; DB tests via pgTAP (`supabase test db`). **No snapshot tests.**
 - **No code comments** unless explicitly required.
 - **Roles/verification are columns from day one:** `profiles.role` (`member|admin`), `profiles.verification_status` (`unverified|pending|verified`).
+- **Every migration that creates a table must GRANT explicitly.** In this Supabase version the default ACL for `public` tables owned by `postgres` gives `anon`/`authenticated` only `Dxtm` (truncate/references/trigger/maintain) — **no SELECT/INSERT/UPDATE/DELETE**. A table with RLS policies but no grants is unreadable by the app, and its policies never evaluate. Grant `select` for readable tables, and scope `update` to a **column list** so privilege-bearing columns (`role`, `verification_status`, `rating_*`) cannot be self-assigned. RLS scopes *rows*; GRANTs scope *columns* — both are required.
+- **pgTAP runs as `postgres`, a superuser that bypasses RLS and grants.** Assertions must therefore check the `authenticated` role explicitly via `has_table_privilege` / `has_column_privilege`, or switch role with `set local role authenticated` plus `set local request.jwt.claims`. A suite that only inspects schema will pass against a table the app cannot actually use.
 - **Verified-only actions come later** (Plan 2+); Plan 1 only establishes the columns and defaults (`unverified`, `member`).
 - **Simulator for tests:** `platform=iOS Simulator,name=iPhone 17 Pro`.
 - **Commits:** conventional-commit messages; **no Claude co-author trailers.**
@@ -558,7 +560,7 @@ git commit -m "chore: initialise local Supabase project"
 
 ---
 
-## Task 3: `profiles` migration, RLS & trigger (pgTAP)
+## Task 3: `profiles` migration, RLS & trigger (pgTAP) ✅ DONE
 
 **Repo:** `backend` — run all commands from `coterie/backend`.
 
@@ -570,7 +572,7 @@ git commit -m "chore: initialise local Supabase project"
 **Interfaces:**
 - Produces: `public.profiles` table with columns `id, display_name, bio, avatar_url, verification_status, role, rating_avg, rating_count, created_at`; a trigger that inserts a profile row on `auth.users` insert; RLS: anyone authenticated may `select`, only the owner may `update`.
 
-- [ ] **Step 1: Write the migration**
+- [x] **Step 1: Write the migration**
 
 `backend/supabase/migrations/0001_profiles.sql`:
 ```sql
@@ -590,6 +592,9 @@ create table public.profiles (
 );
 
 alter table public.profiles enable row level security;
+
+grant select on public.profiles to authenticated;
+grant update (display_name, bio, avatar_url) on public.profiles to authenticated;
 
 create policy "profiles are readable by authenticated users"
     on public.profiles for select
@@ -619,19 +624,23 @@ create trigger on_auth_user_created
     for each row execute function public.handle_new_user();
 ```
 
-- [ ] **Step 2: Write the pgTAP test**
+- [x] **Step 2: Write the pgTAP test**
 
 `backend/supabase/tests/0001_profiles_test.sql`:
 ```sql
 begin;
-select plan(6);
+select plan(13);
 
 select has_table('public', 'profiles', 'profiles table exists');
 select col_is_pk('public', 'profiles', 'id', 'id is primary key');
 select col_default_is('public', 'profiles', 'verification_status', 'unverified', 'default verification is unverified');
 select col_default_is('public', 'profiles', 'role', 'member', 'default role is member');
 
-select tests.rls_enabled('public', 'profiles');
+select is(
+    (select relrowsecurity from pg_class where oid = 'public.profiles'::regclass),
+    true,
+    'RLS is enabled on profiles'
+);
 
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000001', 'a@b.com');
 select is(
@@ -640,19 +649,55 @@ select is(
     'inserting an auth user auto-creates a profile'
 );
 
+select ok(
+    has_table_privilege('authenticated', 'public.profiles', 'SELECT'),
+    'authenticated can read profiles'
+);
+select ok(
+    has_column_privilege('authenticated', 'public.profiles', 'display_name', 'UPDATE'),
+    'authenticated can update display_name'
+);
+select ok(
+    has_column_privilege('authenticated', 'public.profiles', 'bio', 'UPDATE'),
+    'authenticated can update bio'
+);
+select ok(
+    not has_column_privilege('authenticated', 'public.profiles', 'role', 'UPDATE'),
+    'authenticated cannot update role'
+);
+select ok(
+    not has_column_privilege('authenticated', 'public.profiles', 'verification_status', 'UPDATE'),
+    'authenticated cannot update verification_status'
+);
+select ok(
+    not has_column_privilege('authenticated', 'public.profiles', 'rating_avg', 'UPDATE'),
+    'authenticated cannot update rating_avg'
+);
+select ok(
+    not has_column_privilege('authenticated', 'public.profiles', 'rating_count', 'UPDATE'),
+    'authenticated cannot update rating_count'
+);
+
 select finish();
 rollback;
 ```
-(If `tests.rls_enabled` is unavailable in the local pgTAP helpers, replace that line with `select is((select relrowsecurity from pg_class where relname = 'profiles'), true, 'RLS enabled');` and change `plan(6)` accordingly.)
+**As executed:** `tests.rls_enabled` is *not* available — local Supabase has no `tests`
+schema — so the fallback above was used, keyed on `'public.profiles'::regclass` rather than
+`relname` to avoid matching a same-named table in another schema. The assertion count stays
+at `plan(6)`.
 
-- [ ] **Step 3: Add a seed comment placeholder**
+No `create extension pgtap` is needed: `supabase test db` installs it into the running
+database before executing the test files. (Verified — pgTAP reports `NOT INSTALLED`
+immediately after `make db-reset`, and the suite still passes.)
+
+- [x] **Step 3: Add a seed comment placeholder**
 
 `backend/supabase/seed.sql`:
 ```sql
 -- Seed data is added in later plans (pools, memberships). Intentionally empty for Plan 1.
 ```
 
-- [ ] **Step 4: Reset DB and run the migration test**
+- [x] **Step 4: Reset DB and run the migration test**
 
 Run:
 ```bash
@@ -661,7 +706,7 @@ make db-test
 ```
 Expected: `0001_profiles_test.sql .. ok` and all assertions pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A
@@ -1949,4 +1994,5 @@ git commit -m "feat: DI container, coordinator, and root routing"
 - **Cross-repo drift:** the schema in `backend` and the DTOs in `ios` can no longer change in one commit. Task 3 (migration) and Tasks 4/6/8 (DTOs and repositories) straddle that boundary — land the migration first, then the client change. When the Android client arrives, `backend` is the single source of truth for both.
 - **Remotes:** all three repos are private under `suigeneris` (`coterie-docs`, `coterie-ios`, `coterie-backend`). Each repo pins `user.name`/`user.email` locally to `suigeneris <jona2k5@yahoo.com>` — check it before the first commit in any fresh clone.
 - **CI scopes:** the `suigeneris` token has no `workflow` scope, so pushing `.github/workflows/` will be rejected. Run `gh auth refresh -h github.com -s workflow` as part of the CI task.
+- **Column-scoped writes are load-bearing for Plan 2+.** `verification_status` is only meaningful as a trust signal because users cannot set it themselves; the same will apply to escrow state, pool membership and booking ownership. Every future table needs the same treatment — grant `select`, scope `update` to a column list, and let a `security definer` function or service-role path own the privileged columns. Assert it in pgTAP against the `authenticated` role, not as superuser.
 - **Secrets:** the local anon key is safe to commit (local-only). Real QA/prod keys must come from CI secrets / per-env xcconfig excluded from git — enforce when those environments are created.
