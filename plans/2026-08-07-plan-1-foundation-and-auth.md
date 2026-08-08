@@ -953,19 +953,26 @@ actor MockAuthRepository: AuthRepository {
 
     var stubbedUser: AuthedUser?
     var shouldThrow = false
+    var stubbedError: Error?
     private(set) var signUpCallCount = 0
     private(set) var signInCallCount = 0
 
-    init(stubbedUser: AuthedUser? = nil, shouldThrow: Bool = false) {
+    init(stubbedUser: AuthedUser? = nil, shouldThrow: Bool = false, stubbedError: Error? = nil) {
         self.stubbedUser = stubbedUser
-        self.shouldThrow = shouldThrow
+        self.shouldThrow = shouldThrow || stubbedError != nil
+        self.stubbedError = stubbedError
+    }
+
+    private func failureIfNeeded() throws {
+        if let stubbedError { throw stubbedError }
+        if shouldThrow { throw Failure.forced }
     }
 
     var currentUser: AuthedUser? { stubbedUser }
 
     func signUp(email: String, password: String, displayName: String) async throws -> AuthedUser {
         signUpCallCount += 1
-        if shouldThrow { throw Failure.forced }
+        try failureIfNeeded()
         let user = AuthedUser(id: UUID(), email: email)
         stubbedUser = user
         return user
@@ -973,7 +980,7 @@ actor MockAuthRepository: AuthRepository {
 
     func signIn(email: String, password: String) async throws -> AuthedUser {
         signInCallCount += 1
-        if shouldThrow { throw Failure.forced }
+        try failureIfNeeded()
         let user = AuthedUser(id: UUID(), email: email)
         stubbedUser = user
         return user
@@ -1065,6 +1072,27 @@ struct AuthViewModelTests {
         #expect(await repo.signUpCallCount == 0)
     }
 
+    @Test func surfacesDomainErrorMessageToTheUser() async {
+        let viewModel = AuthViewModel(
+            repo: MockAuthRepository(stubbedError: AuthRepositoryError.emailConfirmationRequired)
+        )
+        viewModel.mode = .signUp
+        viewModel.email = "a@b.com"
+        viewModel.password = "password1"
+        viewModel.displayName = "Jonathan"
+        await viewModel.submit()
+        #expect(viewModel.errorMessage == AuthRepositoryError.emailConfirmationRequired.errorDescription)
+    }
+
+    @Test func unrecognisedErrorsStayGeneric() async {
+        let viewModel = AuthViewModel(repo: MockAuthRepository(shouldThrow: true))
+        viewModel.mode = .signIn
+        viewModel.email = "a@b.com"
+        viewModel.password = "password1"
+        await viewModel.submit()
+        #expect(viewModel.errorMessage == "Something went wrong. Please try again.")
+    }
+
     @Test func submitWithInvalidFormDoesNotCallRepository() async {
         let repo = MockAuthRepository()
         let viewModel = AuthViewModel(repo: repo)
@@ -1130,6 +1158,8 @@ final class AuthViewModel {
             case .signUp:
                 authedUser = try await repo.signUp(email: email, password: password, displayName: displayName)
             }
+        } catch let error as AuthRepositoryError {
+            errorMessage = error.errorDescription
         } catch {
             errorMessage = "Something went wrong. Please try again."
         }
@@ -1144,7 +1174,7 @@ Run:
 ```bash
 xcodebuild test -scheme Coterie -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -only-testing:CoterieTests/AuthViewModelTests -quiet
 ```
-Expected: PASS (8 tests — 5 from the plan, 3 added for call-count routing).
+Expected: PASS (10 tests — 5 from the plan, 3 for call-count routing, 2 for error mapping added in Task 7).
 
 - [x] **Step 7: Commit**
 
@@ -1285,9 +1315,17 @@ git commit -m "feat: Supabase-backed AuthRepository implementation"
 
 ---
 
-## Task 7: Auth UI (Sign In / Sign Up)
+## Task 7: Auth UI (Sign In / Sign Up) ✅ DONE
 
 **Repo:** `ios` — run all commands from `coterie/ios`.
+
+**As executed:** both views render `viewModel.errorMessage`, but `AuthViewModel`'s single
+catch-all flattened every failure to `"Something went wrong. Please try again."` — so the
+`AuthRepositoryError.emailConfirmationRequired` message introduced in Task 6 could never
+reach the screen. `submit()` now catches `AuthRepositoryError` first and uses its
+`errorDescription`; anything else stays generic, so raw SDK error text is never shown to
+users. Covered by `surfacesDomainErrorMessageToTheUser` and `unrecognisedErrorsStayGeneric`
+in Task 5's suite, and `MockAuthRepository` gained a `stubbedError` parameter to drive it.
 
 **Files:**
 - Create: `ios/Coterie/Features/Auth/SignInView.swift`
@@ -1297,7 +1335,7 @@ git commit -m "feat: Supabase-backed AuthRepository implementation"
 - Consumes: `AuthViewModel`.
 - Produces: `SignInView(viewModel:)`, `SignUpView(viewModel:)`. Both bind to a shared `AuthViewModel`; on success `viewModel.authedUser` is non-nil (routing handled in Task 11).
 
-- [ ] **Step 1: Implement SignInView**
+- [x] **Step 1: Implement SignInView**
 
 `ios/Coterie/Features/Auth/SignInView.swift`:
 ```swift
@@ -1337,7 +1375,7 @@ struct SignInView: View {
 }
 ```
 
-- [ ] **Step 2: Implement SignUpView**
+- [x] **Step 2: Implement SignUpView**
 
 `ios/Coterie/Features/Auth/SignUpView.swift`:
 ```swift
@@ -1379,7 +1417,7 @@ struct SignUpView: View {
 }
 ```
 
-- [ ] **Step 3: Build and run lint**
+- [x] **Step 3: Build and run lint**
 
 Run:
 ```bash
@@ -1388,7 +1426,7 @@ swiftlint lint --quiet Coterie/Features/Auth
 ```
 Expected: build succeeds; no SwiftLint errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A
@@ -1990,7 +2028,7 @@ Run:
 ```bash
 xcodebuild test -scheme Coterie -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -only-testing:CoterieTests/AppCoordinatorTests -quiet
 ```
-Expected: PASS (8 tests — 5 from the plan, 3 added for call-count routing).
+Expected: PASS (10 tests — 5 from the plan, 3 for call-count routing, 2 for error mapping added in Task 7).
 
 - [ ] **Step 6: Wire RootView to the coordinator**
 
