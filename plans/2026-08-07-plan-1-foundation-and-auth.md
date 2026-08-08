@@ -1155,7 +1155,7 @@ git commit -m "feat: AuthRepository protocol and tested AuthViewModel"
 
 ---
 
-## Task 6: SupabaseAuthRepository implementation
+## Task 6: SupabaseAuthRepository implementation ✅ DONE
 
 **Repos:** `ios` for the code; Step 3 also uses `backend` for the integration check.
 
@@ -1166,12 +1166,23 @@ git commit -m "feat: AuthRepository protocol and tested AuthViewModel"
 - Consumes: `AuthRepository`, `AuthedUser`, `SupabaseClientProvider`.
 - Produces: `SupabaseAuthRepository(client:)` conforming to `AuthRepository`.
 
-- [ ] **Step 1: Implement the repository**
+- [x] **Step 1: Implement the repository**
 
 `ios/Coterie/Features/Auth/SupabaseAuthRepository.swift`:
 ```swift
 import Foundation
 import Supabase
+
+enum AuthRepositoryError: LocalizedError {
+    case emailConfirmationRequired
+
+    var errorDescription: String? {
+        switch self {
+        case .emailConfirmationRequired:
+            "Check your email to confirm your account before signing in."
+        }
+    }
+}
 
 struct SupabaseAuthRepository: AuthRepository {
     private let client: SupabaseClient
@@ -1193,6 +1204,9 @@ struct SupabaseAuthRepository: AuthRepository {
             password: password,
             data: ["display_name": .string(displayName)]
         )
+        guard response.session != nil else {
+            throw AuthRepositoryError.emailConfirmationRequired
+        }
         return AuthedUser(id: response.user.id, email: response.user.email ?? email)
     }
 
@@ -1207,29 +1221,62 @@ struct SupabaseAuthRepository: AuthRepository {
 }
 ```
 
-- [ ] **Step 2: Build to verify it compiles against the SDK**
+- [x] **Step 2: Build to verify it compiles against the SDK**
 
 Run from `coterie/ios`:
 ```bash
 make build
 ```
-Expected: `** BUILD SUCCEEDED **`. (If the `signUp` `data:` label or `AnyJSON.string` differs in the resolved SDK version, adjust to the SDK's signature — verify via `client.auth.signUp` autocomplete.)
+Expected: `** BUILD SUCCEEDED **`.
 
-- [ ] **Step 3: Manual integration check**
+**As executed against supabase-swift 2.54.1** — the plan's caveat about `data:` was unfounded,
+but a different mismatch was found:
+- `data:` is `[String: AnyJSON]?`, so `.string(displayName)` is correct.
+- `signIn(email:password:captchaToken:)` returns `Session`. Correct as written.
+- `client.auth.session` is `get async throws`, so `try? await` is correct.
+- **`AuthResponse` is an `enum`** — `.session(Session)` or `.user(User)` — not a struct. It
+  exposes a `user: User` accessor covering both cases (so `response.user.id` compiles) and a
+  `session: Session?` that is `nil` when only a user record came back.
 
-Temporarily wire a throwaway button in `ios/Coterie/App/RootView.swift` to call `signUp`, then confirm a row appears.
+That last point is the real one. `signUp` returns `.user` with **no session** when email
+confirmation is enabled. Local `config.toml` has `enable_confirmations = false`, so a session
+is always issued and the plan's code appears to work — but hosted projects default it **on**,
+where the original code would return an `AuthedUser` for a user who is not signed in. Task 11
+would then route to profile setup and fail on `permission denied`. Hence the explicit
+`guard response.session != nil` above.
 
-Run from `coterie/backend`:
+- [x] **Step 3: Integration check**
+
+Done against the HTTP API rather than a throwaway button, so it is reproducible and exercises
+the same endpoints the SDK calls.
+
+Run from `coterie/backend` (`ANON` is the local anon key from `make db-status`):
 ```bash
 make db-reset
+curl -s -X POST "http://127.0.0.1:54321/auth/v1/signup" \
+  -H "apikey: $ANON" -H "Content-Type: application/json" \
+  -d '{"email":"jonathan@example.com","password":"password1","data":{"display_name":"Jonathan"}}'
+docker exec supabase_db_coterie psql -U postgres -c \
+  "select display_name, verification_status, role from public.profiles;"
 ```
-Run the app from `coterie/ios` and tap the temp button, then from `coterie/backend`:
-```bash
-psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c "select id, display_name, verification_status, role from public.profiles;"
-```
-Expected: one row with the display name, `unverified`, `member`. Remove the temp button after verifying.
+Expected: response contains `access_token`; one row with the display name, `unverified`, `member`.
 
-- [ ] **Step 4: Commit**
+Then, using the `access_token` from that response, confirm the client contract Task 8 depends on:
+```bash
+curl -s "http://127.0.0.1:54321/rest/v1/profiles?select=*" \
+  -H "apikey: $ANON" -H "Authorization: Bearer $TOK"                       # 200, row returned
+curl -s -X PATCH "http://127.0.0.1:54321/rest/v1/profiles?id=eq.$UID" \
+  -H "apikey: $ANON" -H "Authorization: Bearer $TOK" \
+  -H "Content-Type: application/json" -d '{"display_name":"X","bio":"y"}'  # 200, updated
+curl -s -X PATCH "http://127.0.0.1:54321/rest/v1/profiles?id=eq.$UID" \
+  -H "apikey: $ANON" -H "Authorization: Bearer $TOK" \
+  -H "Content-Type: application/json" -d '{"role":"admin"}'                # 403, code 42501
+```
+Verified: read and safe-column write succeed; the escalation attempt returns
+`HTTP 403 / 42501 permission denied for table profiles`, confirming the Task 3 column grants
+hold over the real API and not just in pgTAP.
+
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A
@@ -2071,5 +2118,6 @@ git commit -m "feat: DI container, coordinator, and root routing"
 - **Cross-repo drift:** the schema in `backend` and the DTOs in `ios` can no longer change in one commit. Task 3 (migration) and Tasks 4/6/8 (DTOs and repositories) straddle that boundary — land the migration first, then the client change. When the Android client arrives, `backend` is the single source of truth for both.
 - **Remotes:** all three repos are private under `suigeneris` (`coterie-docs`, `coterie-ios`, `coterie-backend`). Each repo pins `user.name`/`user.email` locally to `suigeneris <jona2k5@yahoo.com>` — check it before the first commit in any fresh clone.
 - **CI scopes:** the `suigeneris` token has no `workflow` scope, so pushing `.github/workflows/` will be rejected. Run `gh auth refresh -h github.com -s workflow` as part of the CI task.
+- **Email confirmation must be decided before QA/prod.** `signUp` only returns a session when `enable_confirmations = false`. Local dev has it off. Turning it on — the hosted default — means sign-up no longer signs the user in, and the app needs a "check your email" state plus a deep link back into the app. `SupabaseAuthRepository` currently throws `AuthRepositoryError.emailConfirmationRequired` in that case, which fails loudly rather than silently but is not a usable flow. Either keep confirmations off for the pilot, or add that state in Plan 2.
 - **Column-scoped writes are load-bearing for Plan 2+.** `verification_status` is only meaningful as a trust signal because users cannot set it themselves; the same will apply to escrow state, pool membership and booking ownership. Every future table needs the same treatment — grant `select`, scope `update` to a column list, and let a `security definer` function or service-role path own the privileged columns. Assert it in pgTAP against the `authenticated` role, not as superuser.
 - **Secrets:** the local anon key is safe to commit (local-only). Real QA/prod keys must come from CI secrets / per-env xcconfig excluded from git — enforce when those environments are created.
