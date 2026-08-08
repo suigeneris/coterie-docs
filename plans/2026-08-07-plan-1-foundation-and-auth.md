@@ -15,6 +15,7 @@
 - **Project generation: XcodeGen** — `project.yml` is source of truth; `.xcodeproj` is git-ignored and generated.
 - **MVVM + coordinators.** Views hold no business logic or networking. View models depend on protocols, never `SupabaseClient`.
 - **Four-tier data layering:** domain models (used by view models/UI) · DTO (`Decodable`, inbound) · DTI (`Encodable`, outbound) · mappers between them. DTO/DTI/mappers live *inside* repository implementations only.
+- **DTO/DTI properties are camelCase with an explicit `CodingKeys` mapping to the snake_case column names.** Swift identifiers containing underscores are rejected by the project's SwiftLint `identifier_name` rule, so mirroring Postgres column names directly does not compile clean. Because the wire contract then lives in `CodingKeys` rather than in the property names, each DTO/DTI needs a round-trip test asserting the snake_case JSON keys — otherwise a rename silently breaks the API contract with no test failure.
 - **Concurrency:** `async/await`; view models `@MainActor`.
 - **Testing:** Swift Testing (`@Test`/`#expect`); view-model tests run against mock repositories; DB tests via pgTAP (`supabase test db`). **No snapshot tests.**
 - **No code comments** unless explicitly required.
@@ -715,7 +716,7 @@ git commit -m "feat(db): profiles table with RLS and auto-create trigger"
 
 ---
 
-## Task 4: Profile domain model, DTO/DTI & mapper
+## Task 4: Profile domain model, DTO/DTI & mapper ✅ DONE
 
 **Repo:** `ios` — run all commands from `coterie/ios`.
 
@@ -727,7 +728,7 @@ git commit -m "feat(db): profiles table with RLS and auto-create trigger"
 **Interfaces:**
 - Produces: domain `Profile`, `VerificationStatus`, `UserRole`; `ProfileDTO` (Decodable), `ProfileUpdateDTI` (Encodable), `ProfileMapper.domain(from:)`, `ProfileMapper.updateDTI(displayName:bio:)`.
 
-- [ ] **Step 1: Write the domain model**
+- [x] **Step 1: Write the domain model**
 
 `ios/Coterie/Core/Models/Profile.swift`:
 ```swift
@@ -751,7 +752,7 @@ struct Profile: Identifiable, Sendable, Equatable {
 }
 ```
 
-- [ ] **Step 2: Write the failing mapper test**
+- [x] **Step 2: Write the failing mapper test**
 
 `ios/CoterieTests/ProfileMapperTests.swift`:
 ```swift
@@ -760,13 +761,13 @@ import Foundation
 @testable import Coterie
 
 struct ProfileMapperTests {
-    @Test func mapsDTOToDomain() {
+    @Test func mapsDTOToDomain() throws {
         let dto = ProfileDTO(
-            id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
-            display_name: "Jonathan",
+            id: try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000001")),
+            displayName: "Jonathan",
             bio: "collector",
-            avatar_url: "https://example.com/a.png",
-            verification_status: "verified",
+            avatarURL: "https://example.com/a.png",
+            verificationStatus: "verified",
             role: "admin"
         )
         let profile = ProfileMapper.domain(from: dto)
@@ -778,8 +779,8 @@ struct ProfileMapperTests {
     }
 
     @Test func unknownEnumStringsFallBackToSafeDefaults() {
-        let dto = ProfileDTO(id: UUID(), display_name: "X", bio: nil,
-                             avatar_url: nil, verification_status: "garbage", role: "garbage")
+        let dto = ProfileDTO(id: UUID(), displayName: "X", bio: nil,
+                             avatarURL: nil, verificationStatus: "garbage", role: "garbage")
         let profile = ProfileMapper.domain(from: dto)
         #expect(profile.verificationStatus == .unverified)
         #expect(profile.role == .member)
@@ -788,13 +789,42 @@ struct ProfileMapperTests {
 
     @Test func buildsUpdateDTI() {
         let dti = ProfileMapper.updateDTI(displayName: "New Name", bio: "hi")
-        #expect(dti.display_name == "New Name")
+        #expect(dti.displayName == "New Name")
         #expect(dti.bio == "hi")
+    }
+
+    @Test func decodesSnakeCaseColumnsFromPostgrest() throws {
+        let json = """
+        {
+          "id": "00000000-0000-0000-0000-000000000001",
+          "display_name": "Jonathan",
+          "bio": null,
+          "avatar_url": "https://example.com/a.png",
+          "verification_status": "pending",
+          "role": "member"
+        }
+        """
+        let dto = try JSONDecoder().decode(ProfileDTO.self, from: Data(json.utf8))
+        #expect(dto.displayName == "Jonathan")
+        #expect(dto.avatarURL == "https://example.com/a.png")
+        #expect(dto.verificationStatus == "pending")
+        #expect(dto.bio == nil)
+    }
+
+    @Test func encodesUpdateDTIWithSnakeCaseColumns() throws {
+        let dti = ProfileMapper.updateDTI(displayName: "New Name", bio: "hi")
+        let data = try JSONEncoder().encode(dti)
+        let object = try #require(
+            try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+        #expect(object["display_name"] as? String == "New Name")
+        #expect(object["bio"] as? String == "hi")
+        #expect(object["displayName"] == nil)
     }
 }
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run:
 ```bash
@@ -802,7 +832,7 @@ xcodebuild test -scheme Coterie -destination 'platform=iOS Simulator,name=iPhone
 ```
 Expected: FAIL — `cannot find 'ProfileDTO' in scope`.
 
-- [ ] **Step 4: Implement DTO/DTI and mapper**
+- [x] **Step 4: Implement DTO/DTI and mapper**
 
 `ios/Coterie/Features/Profile/ProfileDTO.swift`:
 ```swift
@@ -810,45 +840,59 @@ import Foundation
 
 struct ProfileDTO: Decodable {
     let id: UUID
-    let display_name: String
+    let displayName: String
     let bio: String?
-    let avatar_url: String?
-    let verification_status: String
+    let avatarURL: String?
+    let verificationStatus: String
     let role: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case displayName = "display_name"
+        case bio
+        case avatarURL = "avatar_url"
+        case verificationStatus = "verification_status"
+        case role
+    }
 }
 
 struct ProfileUpdateDTI: Encodable {
-    let display_name: String
+    let displayName: String
     let bio: String
+
+    enum CodingKeys: String, CodingKey {
+        case displayName = "display_name"
+        case bio
+    }
 }
 
 enum ProfileMapper {
     static func domain(from dto: ProfileDTO) -> Profile {
         Profile(
             id: dto.id,
-            displayName: dto.display_name,
+            displayName: dto.displayName,
             bio: dto.bio ?? "",
-            avatarURL: dto.avatar_url.flatMap(URL.init(string:)),
-            verificationStatus: VerificationStatus(rawValue: dto.verification_status) ?? .unverified,
+            avatarURL: dto.avatarURL.flatMap(URL.init(string:)),
+            verificationStatus: VerificationStatus(rawValue: dto.verificationStatus) ?? .unverified,
             role: UserRole(rawValue: dto.role) ?? .member
         )
     }
 
     static func updateDTI(displayName: String, bio: String) -> ProfileUpdateDTI {
-        ProfileUpdateDTI(display_name: displayName, bio: bio)
+        ProfileUpdateDTI(displayName: displayName, bio: bio)
     }
 }
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run:
 ```bash
 xcodebuild test -scheme Coterie -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -only-testing:CoterieTests/ProfileMapperTests -quiet
 ```
-Expected: PASS (3 tests).
+Expected: PASS (5 tests — 3 mapper, 2 wire-format round trip).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A
