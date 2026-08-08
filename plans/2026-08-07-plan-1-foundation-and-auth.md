@@ -18,6 +18,7 @@
 - **DTO/DTI properties are camelCase with an explicit `CodingKeys` mapping to the snake_case column names.** Swift identifiers containing underscores are rejected by the project's SwiftLint `identifier_name` rule, so mirroring Postgres column names directly does not compile clean. Because the wire contract then lives in `CodingKeys` rather than in the property names, each DTO/DTI needs a round-trip test asserting the snake_case JSON keys — otherwise a rename silently breaks the API contract with no test failure.
 - **Concurrency:** `async/await`; view models `@MainActor`.
 - **Testing:** Swift Testing (`@Test`/`#expect`); view-model tests run against mock repositories; DB tests via pgTAP (`supabase test db`). **No snapshot tests.**
+- **Where a mock records call counts, assert them.** Verifying only the *result* of a call leaves branch-routing untested — both branches of `AuthViewModel.submit()` return an `AuthedUser` with the same email, so a `signUp` branch wrongly calling `signIn` passed every result-based test. Confirmed by mutation: the plan's five original tests all stayed green under that bug.
 - **No code comments** unless explicitly required.
 - **Roles/verification are columns from day one:** `profiles.role` (`member|admin`), `profiles.verification_status` (`unverified|pending|verified`).
 - **Every migration that creates a table must GRANT explicitly.** In this Supabase version the default ACL for `public` tables owned by `postgres` gives `anon`/`authenticated` only `Dxtm` (truncate/references/trigger/maintain) — **no SELECT/INSERT/UPDATE/DELETE**. A table with RLS policies but no grants is unreadable by the app, and its policies never evaluate. Grant `select` for readable tables, and scope `update` to a **column list** so privilege-bearing columns (`role`, `verification_status`, `rating_*`) cannot be self-assigned. RLS scopes *rows*; GRANTs scope *columns* — both are required.
@@ -901,7 +902,7 @@ git commit -m "feat: Profile domain model with DTO/DTI mapper"
 
 ---
 
-## Task 5: AuthRepository protocol, AuthedUser & AuthViewModel
+## Task 5: AuthRepository protocol, AuthedUser & AuthViewModel ✅ DONE
 
 **Repo:** `ios` — run all commands from `coterie/ios`.
 
@@ -916,7 +917,7 @@ git commit -m "feat: Profile domain model with DTO/DTI mapper"
 - Consumes: nothing.
 - Produces: `AuthedUser { id: UUID, email: String }`; `protocol AuthRepository` with `currentUser: AuthedUser? { get async }`, `signUp(email:password:displayName:)`, `signIn(email:password:)`, `signOut()`; `@MainActor @Observable AuthViewModel(repo:)` with `email/password/displayName/mode/isLoading/errorMessage/authedUser`, `canSubmit: Bool`, `submit() async`.
 
-- [ ] **Step 1: Write the domain model and protocol**
+- [x] **Step 1: Write the domain model and protocol**
 
 `ios/Coterie/Core/Models/AuthedUser.swift`:
 ```swift
@@ -940,7 +941,7 @@ protocol AuthRepository: Sendable {
 }
 ```
 
-- [ ] **Step 2: Write the mock repository**
+- [x] **Step 2: Write the mock repository**
 
 `ios/CoterieTests/Mocks/MockAuthRepository.swift`:
 ```swift
@@ -982,7 +983,7 @@ actor MockAuthRepository: AuthRepository {
 }
 ```
 
-- [ ] **Step 3: Write failing AuthViewModel tests**
+- [x] **Step 3: Write failing AuthViewModel tests**
 
 `ios/CoterieTests/AuthViewModelTests.swift`:
 ```swift
@@ -993,59 +994,91 @@ import Foundation
 @MainActor
 struct AuthViewModelTests {
     @Test func signInFormInvalidWhenEmailOrPasswordEmpty() {
-        let vm = AuthViewModel(repo: MockAuthRepository())
-        vm.mode = .signIn
-        vm.email = ""
-        vm.password = ""
-        #expect(vm.canSubmit == false)
+        let viewModel = AuthViewModel(repo: MockAuthRepository())
+        viewModel.mode = .signIn
+        viewModel.email = ""
+        viewModel.password = ""
+        #expect(viewModel.canSubmit == false)
     }
 
     @Test func signInFormValidWithGoodEmailAndPassword() {
-        let vm = AuthViewModel(repo: MockAuthRepository())
-        vm.mode = .signIn
-        vm.email = "a@b.com"
-        vm.password = "password1"
-        #expect(vm.canSubmit == true)
+        let viewModel = AuthViewModel(repo: MockAuthRepository())
+        viewModel.mode = .signIn
+        viewModel.email = "a@b.com"
+        viewModel.password = "password1"
+        #expect(viewModel.canSubmit == true)
     }
 
     @Test func signUpRequiresDisplayName() {
-        let vm = AuthViewModel(repo: MockAuthRepository())
-        vm.mode = .signUp
-        vm.email = "a@b.com"
-        vm.password = "password1"
-        vm.displayName = ""
-        #expect(vm.canSubmit == false)
-        vm.displayName = "Jonathan"
-        #expect(vm.canSubmit == true)
+        let viewModel = AuthViewModel(repo: MockAuthRepository())
+        viewModel.mode = .signUp
+        viewModel.email = "a@b.com"
+        viewModel.password = "password1"
+        viewModel.displayName = ""
+        #expect(viewModel.canSubmit == false)
+        viewModel.displayName = "Jonathan"
+        #expect(viewModel.canSubmit == true)
     }
 
     @Test func submitSuccessSetsAuthedUser() async {
-        let repo = MockAuthRepository()
-        let vm = AuthViewModel(repo: repo)
-        vm.mode = .signIn
-        vm.email = "a@b.com"
-        vm.password = "password1"
-        await vm.submit()
-        #expect(vm.authedUser?.email == "a@b.com")
-        #expect(vm.errorMessage == nil)
-        #expect(vm.isLoading == false)
+        let viewModel = AuthViewModel(repo: MockAuthRepository())
+        viewModel.mode = .signIn
+        viewModel.email = "a@b.com"
+        viewModel.password = "password1"
+        await viewModel.submit()
+        #expect(viewModel.authedUser?.email == "a@b.com")
+        #expect(viewModel.errorMessage == nil)
+        #expect(viewModel.isLoading == false)
     }
 
     @Test func submitFailureSetsErrorMessage() async {
-        let repo = MockAuthRepository(shouldThrow: true)
-        let vm = AuthViewModel(repo: repo)
-        vm.mode = .signIn
-        vm.email = "a@b.com"
-        vm.password = "password1"
-        await vm.submit()
-        #expect(vm.authedUser == nil)
-        #expect(vm.errorMessage != nil)
-        #expect(vm.isLoading == false)
+        let viewModel = AuthViewModel(repo: MockAuthRepository(shouldThrow: true))
+        viewModel.mode = .signIn
+        viewModel.email = "a@b.com"
+        viewModel.password = "password1"
+        await viewModel.submit()
+        #expect(viewModel.authedUser == nil)
+        #expect(viewModel.errorMessage != nil)
+        #expect(viewModel.isLoading == false)
+    }
+
+    @Test func signUpModeCallsSignUpNotSignIn() async {
+        let repo = MockAuthRepository()
+        let viewModel = AuthViewModel(repo: repo)
+        viewModel.mode = .signUp
+        viewModel.email = "a@b.com"
+        viewModel.password = "password1"
+        viewModel.displayName = "Jonathan"
+        await viewModel.submit()
+        #expect(await repo.signUpCallCount == 1)
+        #expect(await repo.signInCallCount == 0)
+    }
+
+    @Test func signInModeCallsSignInNotSignUp() async {
+        let repo = MockAuthRepository()
+        let viewModel = AuthViewModel(repo: repo)
+        viewModel.mode = .signIn
+        viewModel.email = "a@b.com"
+        viewModel.password = "password1"
+        await viewModel.submit()
+        #expect(await repo.signInCallCount == 1)
+        #expect(await repo.signUpCallCount == 0)
+    }
+
+    @Test func submitWithInvalidFormDoesNotCallRepository() async {
+        let repo = MockAuthRepository()
+        let viewModel = AuthViewModel(repo: repo)
+        viewModel.mode = .signIn
+        viewModel.email = "not-an-email"
+        viewModel.password = "short"
+        await viewModel.submit()
+        #expect(await repo.signInCallCount == 0)
+        #expect(viewModel.authedUser == nil)
     }
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they fail**
+- [x] **Step 4: Run tests to verify they fail**
 
 Run:
 ```bash
@@ -1053,7 +1086,7 @@ xcodebuild test -scheme Coterie -destination 'platform=iOS Simulator,name=iPhone
 ```
 Expected: FAIL — `cannot find 'AuthViewModel' in scope`.
 
-- [ ] **Step 5: Implement AuthViewModel**
+- [x] **Step 5: Implement AuthViewModel**
 
 `ios/Coterie/Features/Auth/AuthViewModel.swift`:
 ```swift
@@ -1105,15 +1138,15 @@ final class AuthViewModel {
 }
 ```
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 Run:
 ```bash
 xcodebuild test -scheme Coterie -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -only-testing:CoterieTests/AuthViewModelTests -quiet
 ```
-Expected: PASS (5 tests).
+Expected: PASS (8 tests — 5 from the plan, 3 added for call-count routing).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A
@@ -1910,7 +1943,7 @@ Run:
 ```bash
 xcodebuild test -scheme Coterie -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -only-testing:CoterieTests/AppCoordinatorTests -quiet
 ```
-Expected: PASS (5 tests).
+Expected: PASS (8 tests — 5 from the plan, 3 added for call-count routing).
 
 - [ ] **Step 6: Wire RootView to the coordinator**
 
