@@ -1795,9 +1795,19 @@ git commit -m "feat: profile setup screen"
 
 ---
 
-## Task 10: First-run intro carousel
+## Task 10: First-run intro carousel ✅ DONE
 
 **Repo:** `ios` — run all commands from `coterie/ios`.
+
+**As executed:** the plan's code compiled and passed unchanged — the first task where that
+was true. Two tests added: `advance()` at the last page must not run past the end (the guard
+existed but nothing exercised it), and every page must carry a non-empty title, subtitle and
+SF Symbol name.
+
+Note `IntroPage.id` is a fresh `UUID()` per instance, so the synthesised `Equatable`
+conformance compares identity rather than content — two pages with identical copy are never
+equal. Harmless here because `ForEach` keys on `id` and nothing compares pages, but do not
+rely on `==` for content assertions.
 
 **Files:**
 - Create: `ios/Coterie/Features/Onboarding/IntroPage.swift`
@@ -1808,7 +1818,7 @@ git commit -m "feat: profile setup screen"
 **Interfaces:**
 - Produces: `IntroPage { title, subtitle, systemImage }`; `@Observable IntroViewModel` with `pages: [IntroPage]`, `currentIndex`, `isLastPage: Bool`, `advance()`; `IntroCarouselView(onFinished:)`.
 
-- [ ] **Step 1: Write the page model**
+- [x] **Step 1: Write the page model**
 
 `ios/Coterie/Features/Onboarding/IntroPage.swift`:
 ```swift
@@ -1822,7 +1832,7 @@ struct IntroPage: Identifiable, Equatable {
 }
 ```
 
-- [ ] **Step 2: Write failing IntroViewModel tests**
+- [x] **Step 2: Write failing IntroViewModel tests**
 
 `ios/CoterieTests/IntroViewModelTests.swift`:
 ```swift
@@ -1832,24 +1842,41 @@ import Testing
 @MainActor
 struct IntroViewModelTests {
     @Test func hasThreePages() {
-        let vm = IntroViewModel()
-        #expect(vm.pages.count == 3)
+        let viewModel = IntroViewModel()
+        #expect(viewModel.pages.count == 3)
     }
 
     @Test func advanceMovesForwardAndDetectsLastPage() {
-        let vm = IntroViewModel()
-        #expect(vm.currentIndex == 0)
-        #expect(vm.isLastPage == false)
-        vm.advance()
-        #expect(vm.currentIndex == 1)
-        vm.advance()
-        #expect(vm.currentIndex == 2)
-        #expect(vm.isLastPage == true)
+        let viewModel = IntroViewModel()
+        #expect(viewModel.currentIndex == 0)
+        #expect(viewModel.isLastPage == false)
+        viewModel.advance()
+        #expect(viewModel.currentIndex == 1)
+        viewModel.advance()
+        #expect(viewModel.currentIndex == 2)
+        #expect(viewModel.isLastPage == true)
+    }
+
+    @Test func advanceAtLastPageStaysPut() {
+        let viewModel = IntroViewModel()
+        viewModel.currentIndex = viewModel.pages.count - 1
+        viewModel.advance()
+        #expect(viewModel.currentIndex == viewModel.pages.count - 1)
+        #expect(viewModel.isLastPage == true)
+    }
+
+    @Test func everyPageHasContent() {
+        let viewModel = IntroViewModel()
+        for page in viewModel.pages {
+            #expect(!page.title.isEmpty)
+            #expect(!page.subtitle.isEmpty)
+            #expect(!page.systemImage.isEmpty)
+        }
     }
 }
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run:
 ```bash
@@ -1857,7 +1884,7 @@ xcodebuild test -scheme Coterie -destination 'platform=iOS Simulator,name=iPhone
 ```
 Expected: FAIL — `cannot find 'IntroViewModel' in scope`.
 
-- [ ] **Step 4: Implement IntroViewModel**
+- [x] **Step 4: Implement IntroViewModel**
 
 `ios/Coterie/Features/Onboarding/IntroViewModel.swift`:
 ```swift
@@ -1889,15 +1916,15 @@ final class IntroViewModel {
 }
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run:
 ```bash
 xcodebuild test -scheme Coterie -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -only-testing:CoterieTests/IntroViewModelTests -quiet
 ```
-Expected: PASS (2 tests).
+Expected: PASS (4 tests — 2 from the plan, 2 for the advance() boundary and page content).
 
-- [ ] **Step 6: Implement IntroCarouselView**
+- [x] **Step 6: Implement IntroCarouselView**
 
 `ios/Coterie/Features/Onboarding/IntroCarouselView.swift`:
 ```swift
@@ -1940,7 +1967,7 @@ struct IntroCarouselView: View {
 }
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A
