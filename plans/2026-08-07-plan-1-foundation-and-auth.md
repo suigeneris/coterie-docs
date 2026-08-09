@@ -956,11 +956,16 @@ actor MockAuthRepository: AuthRepository {
     var stubbedError: Error?
     private(set) var signUpCallCount = 0
     private(set) var signInCallCount = 0
+    private(set) var signOutCallCount = 0
 
     init(stubbedUser: AuthedUser? = nil, shouldThrow: Bool = false, stubbedError: Error? = nil) {
         self.stubbedUser = stubbedUser
         self.shouldThrow = shouldThrow || stubbedError != nil
         self.stubbedError = stubbedError
+    }
+
+    func setShouldThrow(_ value: Bool) {
+        shouldThrow = value
     }
 
     private func failureIfNeeded() throws {
@@ -986,7 +991,11 @@ actor MockAuthRepository: AuthRepository {
         return user
     }
 
-    func signOut() async throws { stubbedUser = nil }
+    func signOut() async throws {
+        signOutCallCount += 1
+        try failureIfNeeded()
+        stubbedUser = nil
+    }
 }
 ```
 
@@ -1072,6 +1081,56 @@ struct AuthViewModelTests {
         #expect(await repo.signUpCallCount == 0)
     }
 
+    @Test func signUpMarksTheAccountAsNewlyCreated() async {
+        let viewModel = AuthViewModel(repo: MockAuthRepository())
+        viewModel.mode = .signUp
+        viewModel.email = "a@b.com"
+        viewModel.password = "password1"
+        viewModel.displayName = "Jonathan"
+        await viewModel.submit()
+        #expect(viewModel.didCreateAccount == true)
+    }
+
+    @Test func signInDoesNotMarkTheAccountAsNewlyCreated() async {
+        let viewModel = AuthViewModel(repo: MockAuthRepository())
+        viewModel.mode = .signIn
+        viewModel.email = "a@b.com"
+        viewModel.password = "password1"
+        await viewModel.submit()
+        #expect(viewModel.didCreateAccount == false)
+    }
+
+    @Test func signOutClearsSessionAndCredentials() async {
+        let repo = MockAuthRepository()
+        let viewModel = AuthViewModel(repo: repo)
+        viewModel.mode = .signIn
+        viewModel.email = "a@b.com"
+        viewModel.password = "password1"
+        await viewModel.submit()
+        #expect(viewModel.authedUser != nil)
+
+        #expect(await viewModel.signOut() == true)
+        #expect(await repo.signOutCallCount == 1)
+        #expect(viewModel.authedUser == nil)
+        #expect(viewModel.email == "")
+        #expect(viewModel.password == "")
+        #expect(viewModel.displayName == "")
+    }
+
+    @Test func signOutFailureKeepsSessionAndReportsError() async {
+        let repo = MockAuthRepository()
+        let viewModel = AuthViewModel(repo: repo)
+        viewModel.mode = .signIn
+        viewModel.email = "a@b.com"
+        viewModel.password = "password1"
+        await viewModel.submit()
+
+        await repo.setShouldThrow(true)
+        #expect(await viewModel.signOut() == false)
+        #expect(viewModel.authedUser != nil)
+        #expect(viewModel.errorMessage != nil)
+    }
+
     @Test func surfacesDomainErrorMessageToTheUser() async {
         let viewModel = AuthViewModel(
             repo: MockAuthRepository(stubbedError: AuthRepositoryError.emailConfirmationRequired)
@@ -1133,6 +1192,7 @@ final class AuthViewModel {
     var isLoading = false
     var errorMessage: String?
     private(set) var authedUser: AuthedUser?
+    private(set) var didCreateAccount = false
 
     private let repo: AuthRepository
 
@@ -1155,8 +1215,10 @@ final class AuthViewModel {
             switch mode {
             case .signIn:
                 authedUser = try await repo.signIn(email: email, password: password)
+                didCreateAccount = false
             case .signUp:
                 authedUser = try await repo.signUp(email: email, password: password, displayName: displayName)
+                didCreateAccount = true
             }
         } catch let error as AuthRepositoryError {
             errorMessage = error.errorDescription
@@ -1164,6 +1226,23 @@ final class AuthViewModel {
             errorMessage = "Something went wrong. Please try again."
         }
         isLoading = false
+    }
+
+    @discardableResult
+    func signOut() async -> Bool {
+        do {
+            try await repo.signOut()
+        } catch {
+            errorMessage = "Couldn't sign out. Please try again."
+            return false
+        }
+        authedUser = nil
+        didCreateAccount = false
+        email = ""
+        password = ""
+        displayName = ""
+        errorMessage = nil
+        return true
     }
 }
 ```
@@ -1976,9 +2055,35 @@ git commit -m "feat: first-run intro carousel"
 
 ---
 
-## Task 11: AppContainer DI, AppCoordinator & root routing
+## Task 11: AppContainer DI, AppCoordinator & root routing ✅ DONE
 
 **Repos:** `ios` for the code; Step 8 also uses `backend` for the smoke test.
+
+**As executed — three changes beyond the plan:**
+
+1. **`hasSeenIntro` key extracted to `RootView.hasSeenIntroKey`.** It was written as a bare
+   string literal twice — once in `@AppStorage`, once in `UserDefaults.standard.bool(forKey:)`
+   inside `init` — so a typo in either would have silently split the two.
+2. **Sign out added.** `AuthRepository.signOut()` was implemented in Task 6 but never called
+   from anywhere, so once signed in there was no route back to `.auth`. Worse for QA: the
+   Supabase SDK stores the session in the **Keychain**, which survives deleting the app from
+   the simulator, so a "clean reinstall" still launched straight to `.home`. Now wired through
+   `AuthViewModel.signOut()` (returns `Bool`, clears credentials) and
+   `AppCoordinator.didSignOut()`.
+3. **`didAuthenticate` takes `needsProfileSetup`.** It previously always routed to
+   `.profileSetup`, so a returning user signing in was sent through setup again — invisible
+   until sign-out existed, then hit on every QA cycle. Driven by
+   `AuthViewModel.didCreateAccount`, which records whether the session came from `signUp` or
+   `signIn`. Profile completeness is **not** usable as the signal: the DB trigger always
+   populates `display_name` from signup metadata and `bio` is optional, so every profile looks
+   complete from creation and a data-driven check would skip setup for new users too.
+
+The plan's test bindings (`let c = AppCoordinator(...)`) also violate SwiftLint's
+`identifier_name` minimum length of 2 and were renamed.
+
+**Step 8 was verified manually by the user** driving the simulator; the automated suite,
+build and lint were verified programmatically. First launch showing the intro carousel and
+the signed-out sign-in screen were confirmed by screenshot.
 
 **Files:**
 - Create: `ios/Coterie/App/AppContainer.swift`
@@ -1991,7 +2096,7 @@ git commit -m "feat: first-run intro carousel"
 - Consumes: `AuthRepository`, `ProfileRepository`, `SupabaseClientProvider`, `AuthViewModel`, `ProfileViewModel`, `IntroCarouselView`, `SignInView`, `SignUpView`, `ProfileSetupView`.
 - Produces: `AppContainer { authRepository, profileRepository }`; `@Observable AppCoordinator` with `route: Route` (`intro | auth | profileSetup | home`), `hasSeenIntro` (AppStorage-backed), `completeIntro()`, `didAuthenticate()`, `didCompleteProfile()`, `start(currentUser:)`.
 
-- [ ] **Step 1: Implement AppContainer**
+- [x] **Step 1: Implement AppContainer**
 
 `ios/Coterie/App/AppContainer.swift`:
 ```swift
@@ -2019,7 +2124,7 @@ final class AppContainer {
 }
 ```
 
-- [ ] **Step 2: Write failing AppCoordinator tests**
+- [x] **Step 2: Write failing AppCoordinator tests**
 
 `ios/CoterieTests/AppCoordinatorTests.swift`:
 ```swift
@@ -2029,42 +2134,82 @@ import Testing
 @MainActor
 struct AppCoordinatorTests {
     @Test func startsAtIntroWhenNotSeenAndSignedOut() {
-        let c = AppCoordinator(hasSeenIntro: false)
-        c.start(currentUser: nil)
-        #expect(c.route == .intro)
+        let coordinator = AppCoordinator(hasSeenIntro: false)
+        coordinator.start(currentUser: nil)
+        #expect(coordinator.route == .intro)
     }
 
     @Test func startsAtAuthWhenIntroSeenAndSignedOut() {
-        let c = AppCoordinator(hasSeenIntro: true)
-        c.start(currentUser: nil)
-        #expect(c.route == .auth)
+        let coordinator = AppCoordinator(hasSeenIntro: true)
+        coordinator.start(currentUser: nil)
+        #expect(coordinator.route == .auth)
     }
 
     @Test func startsAtHomeWhenSignedIn() {
-        let c = AppCoordinator(hasSeenIntro: true)
-        c.start(currentUser: AuthedUser(id: .init(), email: "a@b.com"))
-        #expect(c.route == .home)
+        let coordinator = AppCoordinator(hasSeenIntro: true)
+        coordinator.start(currentUser: AuthedUser(id: .init(), email: "a@b.com"))
+        #expect(coordinator.route == .home)
     }
 
     @Test func completingIntroMovesToAuth() {
-        let c = AppCoordinator(hasSeenIntro: false)
-        c.start(currentUser: nil)
-        c.completeIntro()
-        #expect(c.route == .auth)
+        let coordinator = AppCoordinator(hasSeenIntro: false)
+        coordinator.start(currentUser: nil)
+        coordinator.completeIntro()
+        #expect(coordinator.route == .auth)
     }
 
-    @Test func authThenProfileThenHome() {
-        let c = AppCoordinator(hasSeenIntro: true)
-        c.start(currentUser: nil)
-        c.didAuthenticate()
-        #expect(c.route == .profileSetup)
-        c.didCompleteProfile()
-        #expect(c.route == .home)
+    @Test func newAccountGoesThroughProfileSetupThenHome() {
+        let coordinator = AppCoordinator(hasSeenIntro: true)
+        coordinator.start(currentUser: nil)
+        coordinator.didAuthenticate(needsProfileSetup: true)
+        #expect(coordinator.route == .profileSetup)
+        coordinator.didCompleteProfile()
+        #expect(coordinator.route == .home)
+    }
+
+    @Test func returningUserSigningInSkipsProfileSetup() {
+        let coordinator = AppCoordinator(hasSeenIntro: true)
+        coordinator.start(currentUser: nil)
+        coordinator.didAuthenticate(needsProfileSetup: false)
+        #expect(coordinator.route == .home)
+    }
+
+    @Test func signOutThenSignInDoesNotRepeatProfileSetup() {
+        let coordinator = AppCoordinator(hasSeenIntro: true)
+        coordinator.start(currentUser: nil)
+        coordinator.didAuthenticate(needsProfileSetup: true)
+        coordinator.didCompleteProfile()
+        coordinator.didSignOut()
+        #expect(coordinator.route == .auth)
+        coordinator.didAuthenticate(needsProfileSetup: false)
+        #expect(coordinator.route == .home)
+    }
+
+    @Test func startsAtHomeWhenSignedInEvenIfIntroUnseen() {
+        let coordinator = AppCoordinator(hasSeenIntro: false)
+        coordinator.start(currentUser: AuthedUser(id: .init(), email: "a@b.com"))
+        #expect(coordinator.route == .home)
+    }
+
+    @Test func signingOutReturnsToAuth() {
+        let coordinator = AppCoordinator(hasSeenIntro: true)
+        coordinator.start(currentUser: AuthedUser(id: .init(), email: "a@b.com"))
+        #expect(coordinator.route == .home)
+        coordinator.didSignOut()
+        #expect(coordinator.route == .auth)
+    }
+
+    @Test func completingIntroPersistsAcrossRestart() {
+        let coordinator = AppCoordinator(hasSeenIntro: false)
+        coordinator.start(currentUser: nil)
+        coordinator.completeIntro()
+        coordinator.start(currentUser: nil)
+        #expect(coordinator.route == .auth)
     }
 }
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run:
 ```bash
@@ -2072,7 +2217,7 @@ xcodebuild test -scheme Coterie -destination 'platform=iOS Simulator,name=iPhone
 ```
 Expected: FAIL — `cannot find 'AppCoordinator' in scope`.
 
-- [ ] **Step 4: Implement AppCoordinator**
+- [x] **Step 4: Implement AppCoordinator**
 
 `ios/Coterie/App/AppCoordinator.swift`:
 ```swift
@@ -2106,17 +2251,21 @@ final class AppCoordinator {
         route = .auth
     }
 
-    func didAuthenticate() {
-        route = .profileSetup
+    func didAuthenticate(needsProfileSetup: Bool) {
+        route = needsProfileSetup ? .profileSetup : .home
     }
 
     func didCompleteProfile() {
         route = .home
     }
+
+    func didSignOut() {
+        route = .auth
+    }
 }
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run:
 ```bash
@@ -2124,22 +2273,28 @@ xcodebuild test -scheme Coterie -destination 'platform=iOS Simulator,name=iPhone
 ```
 Expected: PASS (10 tests — 5 from the plan, 3 for call-count routing, 2 for error mapping added in Task 7).
 
-- [ ] **Step 6: Wire RootView to the coordinator**
+- [x] **Step 6: Wire RootView to the coordinator**
 
 Replace `ios/Coterie/App/RootView.swift`:
 ```swift
 import SwiftUI
 
 struct RootView: View {
+    static let hasSeenIntroKey = "hasSeenIntro"
+
     let container: AppContainer
     @State private var coordinator: AppCoordinator
     @State private var authViewModel: AuthViewModel
     @State private var showSignUp = false
-    @AppStorage("hasSeenIntro") private var hasSeenIntro = false
+    @AppStorage(RootView.hasSeenIntroKey) private var hasSeenIntro = false
 
     init(container: AppContainer) {
         self.container = container
-        _coordinator = State(initialValue: AppCoordinator(hasSeenIntro: UserDefaults.standard.bool(forKey: "hasSeenIntro")))
+        _coordinator = State(
+            initialValue: AppCoordinator(
+                hasSeenIntro: UserDefaults.standard.bool(forKey: RootView.hasSeenIntroKey)
+            )
+        )
         _authViewModel = State(initialValue: AuthViewModel(repo: container.authRepository))
     }
 
@@ -2163,11 +2318,16 @@ struct RootView: View {
                     onDone: { coordinator.didCompleteProfile() }
                 )
             case .home:
-                HomePlaceholderView()
+                HomePlaceholderView {
+                    Task {
+                        if await authViewModel.signOut() { coordinator.didSignOut() }
+                    }
+                }
             }
         }
         .onChange(of: authViewModel.authedUser) { _, newValue in
-            if newValue != nil { coordinator.didAuthenticate() }
+            guard newValue != nil else { return }
+            coordinator.didAuthenticate(needsProfileSetup: authViewModel.didCreateAccount)
         }
         .task {
             let user = await container.authRepository.currentUser
@@ -2177,17 +2337,22 @@ struct RootView: View {
 }
 
 private struct HomePlaceholderView: View {
+    var onSignOut: () -> Void
+
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: "bag.fill").font(.largeTitle)
             Text("You're in.").font(.title2.bold())
             Text("Pools arrive in Plan 2.").foregroundStyle(.secondary)
+            Button("Sign out", action: onSignOut)
+                .font(.footnote)
+                .padding(.top, 24)
         }
     }
 }
 ```
 
-- [ ] **Step 7: Inject the container at app entry**
+- [x] **Step 7: Inject the container at app entry**
 
 Replace `ios/Coterie/App/CoterieApp.swift`:
 ```swift
@@ -2205,7 +2370,7 @@ struct CoterieApp: App {
 }
 ```
 
-- [ ] **Step 8: Full test suite, build, and manual smoke**
+- [x] **Step 8: Full test suite, build, and manual smoke**
 
 Run from `coterie/backend`:
 ```bash
@@ -2218,7 +2383,7 @@ make test
 ```
 Expected: all tests pass. Then run the app and verify: intro shows on first launch → Get started → sign up → profile setup → "You're in." Relaunch → lands straight on "You're in." (session + intro persistence).
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 Run from `coterie/ios`:
 ```bash
@@ -2227,6 +2392,46 @@ git commit -m "feat: DI container, coordinator, and root routing"
 ```
 
 ---
+
+## Outcome
+
+**Plan 1 is complete.** All 12 tasks executed, verified and pushed.
+
+| | |
+|---|---|
+| Tests | **45** across 7 suites (the plan specified ~14) |
+| Build / lint | `make build` and `make lint` clean |
+| Database | 13 pgTAP assertions, run against the `authenticated` role |
+| Repos | `coterie-docs`, `coterie-ios`, `coterie-backend` — all pushed, clean |
+
+**Defects the plan's code contained, found by executing it.** Recorded because the pattern
+matters for Plans 2–5: everything environment- or SDK-dependent was wrong, because the plan
+was written without running anything.
+
+| Task | Defect | How it surfaced |
+|---|---|---|
+| 1 | Test target had no Info.plist — `make test` could not build | First `make test`; Task 1 only ever ran `build` |
+| 3 | `profiles` unreadable by the app; RLS policies never evaluated | Grants inspection after a security review flag |
+| 3 | Blanket `update` allowed `role='admin'` self-assignment | Same |
+| 4 | snake_case Swift identifiers fail `identifier_name` lint | `make lint` |
+| 6 | `signUp` reported success with no session when confirmations are on | Reading `AuthResponse` — it is an enum, not a struct |
+| 7 | Catch-all flattened `emailConfirmationRequired` to a generic string | Failing test written before the fix |
+| 9 | Navigation advanced when nothing had been saved | Reading the gate; `save()` returned early without setting `errorMessage` |
+| 11 | No sign-out anywhere; session outlived app deletion via Keychain | QA — reinstall launched straight to `.home` |
+| 11 | Returning users were sent through profile setup on every sign-in | QA, once sign-out made it reachable |
+
+**Tests that passed while the code was wrong** — the recurring failure mode, worth guarding
+against explicitly:
+- pgTAP runs as `postgres`, a superuser that bypasses RLS *and* grants, so a schema-only suite
+  passed against a table the app could not read.
+- `AuthViewModel`'s five original tests all stayed green under a mutation that made `signUp`
+  call `signIn`, because both branches return an `AuthedUser` with the same email. Only a
+  call-count assertion catches it.
+- Compiling proved nothing about the Supabase SDK: `AuthResponse.user` exists on both enum
+  cases, so wrong session semantics built cleanly.
+
+Mutation testing was used to confirm the new assertions actually fail when the behaviour
+regresses, rather than assuming they do.
 
 ## Self-Review
 
@@ -2243,6 +2448,10 @@ git commit -m "feat: DI container, coordinator, and root routing"
 
 **Placeholder scan:** no TBD/TODO; every code step shows complete code. ✅
 
+**Code blocks are synced to the shipped implementation.** Where execution changed the code,
+the block in this plan was replaced with the file on disk rather than left as originally
+written — so this document describes what exists, not what was predicted.
+
 **Type consistency:** `AuthRepository`, `ProfileRepository`, `AuthedUser`, `Profile`, `ProfileDTO`/`ProfileUpdateDTI`/`ProfileMapper`, `AuthViewModel`, `ProfileViewModel`, `IntroViewModel`, `AppCoordinator.Route`, `AppContainer` names match across all tasks. ✅
 
 ## Notes / Known Follow-ups
@@ -2253,3 +2462,9 @@ git commit -m "feat: DI container, coordinator, and root routing"
 - **Email confirmation must be decided before QA/prod.** `signUp` only returns a session when `enable_confirmations = false`. Local dev has it off. Turning it on — the hosted default — means sign-up no longer signs the user in, and the app needs a "check your email" state plus a deep link back into the app. `SupabaseAuthRepository` currently throws `AuthRepositoryError.emailConfirmationRequired` in that case, which fails loudly rather than silently but is not a usable flow. Either keep confirmations off for the pilot, or add that state in Plan 2.
 - **Column-scoped writes are load-bearing for Plan 2+.** `verification_status` is only meaningful as a trust signal because users cannot set it themselves; the same will apply to escrow state, pool membership and booking ownership. Every future table needs the same treatment — grant `select`, scope `update` to a column list, and let a `security definer` function or service-role path own the privileged columns. Assert it in pgTAP against the `authenticated` role, not as superuser.
 - **Secrets:** the local anon key is safe to commit (local-only). Real QA/prod keys must come from CI secrets / per-env xcconfig excluded from git — enforce when those environments are created.
+- **`SupabaseAuthRepository` and `SupabaseProfileRepository` have no automated coverage.** They are thin SDK glue and a real test would need Docker running, coupling `make test` to the local stack. Their contract is pinned indirectly: curl against the live API (Task 6) plus a captured-response decode fixture (Task 8). If Plan 2 adds repositories with real logic, that trade stops holding — add a separate integration scheme so the unit suite stays fast and offline.
+- **No `profile_completed_at` flag.** Routing distinguishes new from returning users via `AuthViewModel.didCreateAccount`, which is in-memory only. A user who force-quits during profile setup never sees it again — harmless now because `display_name` is set by the trigger and `bio` is optional, but it breaks the moment setup collects something required. The fix is a column that setup writes and routing reads; decide before adding a required field.
+- **Error messages are mostly generic.** Only `AuthRepositoryError` maps to real text. Wrong password, network failure and email-already-registered all surface as "Something went wrong. Please try again." because they arrive as Supabase `AuthError`. Needs a proper mapping pass in Plan 2.
+- **Email validation is `contains("@") && contains(".")`.** Accepts `a@b.` and `.@.`. The server rejects them, so the user gets a generic error instead of inline feedback.
+- **Stale form state across auth screens.** `SignInView` and `SignUpView` share one `AuthViewModel`, so a failed sign-in leaves its error and typed password on the sign-up form. `signOut()` clears the fields; switching screens does not.
+- **Push, analytics and crash reporting are undecided.** Supabase covers Postgres, auth, storage, realtime and edge functions, but has no equivalent of FCM, Remote Config, Analytics or Crashlytics. Push is not optional for Coterie — handovers, pool invites, booking reminders and chat all need it — and it implies a `device_tokens` table. Decide at the Plan 2 brainstorm rather than mid-implementation.
