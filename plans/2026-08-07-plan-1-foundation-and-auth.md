@@ -1435,9 +1435,22 @@ git commit -m "feat: sign in and sign up screens"
 
 ---
 
-## Task 8: ProfileRepository, SupabaseProfileRepository & ProfileViewModel
+## Task 8: ProfileRepository, SupabaseProfileRepository & ProfileViewModel ✅ DONE
 
 **Repo:** `ios` — run all commands from `coterie/ios`.
+
+**As executed:** the plan's SDK usage was correct against supabase-swift 2.54.1 — `UUID`
+conforms to `PostgrestFilterValue` so `eq("id", value: id)` compiles, and `update` is
+`throws` but the leading `try` on the chained expression already covers it.
+
+`SupabaseProfileRepository` has **no automated coverage** — it is thin glue over the SDK and
+a real test would need Docker running, which would couple `make test` to the local stack. The
+contract it depends on is pinned two ways instead: the raw HTTP path was exercised with curl
+in Task 6, and `decodesRealPostgrestRowIncludingUnmappedColumns` in `ProfileMapperTests` pins
+a captured `select=*` response — including `rating_avg`, `rating_count` and `created_at`,
+which `ProfileDTO` deliberately omits. That fixture is what catches a column rename after the
+Task 4 move to `CodingKeys`; the property names no longer mirror the columns, so nothing else
+would fail if the schema drifted.
 
 **Files:**
 - Create: `ios/Coterie/Features/Profile/ProfileRepository.swift`
@@ -1450,7 +1463,7 @@ git commit -m "feat: sign in and sign up screens"
 - Consumes: `Profile`, `ProfileDTO`, `ProfileUpdateDTI`, `ProfileMapper`, `SupabaseClient`.
 - Produces: `protocol ProfileRepository { fetchMyProfile() async throws -> Profile; updateMyProfile(displayName:bio:) async throws -> Profile }`; `@MainActor @Observable ProfileViewModel(repo:)` with `displayName/bio/isSaving/errorMessage/profile`, `loadProfile() async`, `save() async`, `canSave: Bool`.
 
-- [ ] **Step 1: Write the protocol and mock**
+- [x] **Step 1: Write the protocol and mock**
 
 `ios/Coterie/Features/Profile/ProfileRepository.swift`:
 ```swift
@@ -1472,6 +1485,8 @@ actor MockProfileRepository: ProfileRepository {
 
     var stubbedProfile: Profile
     var shouldThrow: Bool
+    private(set) var fetchCallCount = 0
+    private(set) var updateCallCount = 0
 
     init(stubbedProfile: Profile? = nil, shouldThrow: Bool = false) {
         self.stubbedProfile = stubbedProfile ?? Profile(
@@ -1482,11 +1497,13 @@ actor MockProfileRepository: ProfileRepository {
     }
 
     func fetchMyProfile() async throws -> Profile {
+        fetchCallCount += 1
         if shouldThrow { throw Failure.forced }
         return stubbedProfile
     }
 
     func updateMyProfile(displayName: String, bio: String) async throws -> Profile {
+        updateCallCount += 1
         if shouldThrow { throw Failure.forced }
         stubbedProfile.displayName = displayName
         stubbedProfile.bio = bio
@@ -1495,7 +1512,7 @@ actor MockProfileRepository: ProfileRepository {
 }
 ```
 
-- [ ] **Step 2: Write failing ProfileViewModel tests**
+- [x] **Step 2: Write failing ProfileViewModel tests**
 
 `ios/CoterieTests/ProfileViewModelTests.swift`:
 ```swift
@@ -1508,41 +1525,58 @@ struct ProfileViewModelTests {
     @Test func loadPopulatesFields() async {
         let profile = Profile(id: UUID(), displayName: "Jon", bio: "hi",
                               avatarURL: nil, verificationStatus: .unverified, role: .member)
-        let vm = ProfileViewModel(repo: MockProfileRepository(stubbedProfile: profile))
-        await vm.loadProfile()
-        #expect(vm.displayName == "Jon")
-        #expect(vm.bio == "hi")
+        let viewModel = ProfileViewModel(repo: MockProfileRepository(stubbedProfile: profile))
+        await viewModel.loadProfile()
+        #expect(viewModel.displayName == "Jon")
+        #expect(viewModel.bio == "hi")
     }
 
     @Test func canSaveFalseWhenDisplayNameBlank() {
-        let vm = ProfileViewModel(repo: MockProfileRepository())
-        vm.displayName = "   "
-        #expect(vm.canSave == false)
-        vm.displayName = "Jon"
-        #expect(vm.canSave == true)
+        let viewModel = ProfileViewModel(repo: MockProfileRepository())
+        viewModel.displayName = "   "
+        #expect(viewModel.canSave == false)
+        viewModel.displayName = "Jon"
+        #expect(viewModel.canSave == true)
     }
 
     @Test func saveSuccessUpdatesProfile() async {
-        let vm = ProfileViewModel(repo: MockProfileRepository())
-        vm.displayName = "New Name"
-        vm.bio = "bio"
-        await vm.save()
-        #expect(vm.profile?.displayName == "New Name")
-        #expect(vm.errorMessage == nil)
-        #expect(vm.isSaving == false)
+        let viewModel = ProfileViewModel(repo: MockProfileRepository())
+        viewModel.displayName = "New Name"
+        viewModel.bio = "bio"
+        await viewModel.save()
+        #expect(viewModel.profile?.displayName == "New Name")
+        #expect(viewModel.errorMessage == nil)
+        #expect(viewModel.isSaving == false)
     }
 
     @Test func saveFailureSetsError() async {
-        let vm = ProfileViewModel(repo: MockProfileRepository(shouldThrow: true))
-        vm.displayName = "New Name"
-        await vm.save()
-        #expect(vm.errorMessage != nil)
-        #expect(vm.isSaving == false)
+        let viewModel = ProfileViewModel(repo: MockProfileRepository(shouldThrow: true))
+        viewModel.displayName = "New Name"
+        await viewModel.save()
+        #expect(viewModel.errorMessage != nil)
+        #expect(viewModel.isSaving == false)
+    }
+
+    @Test func saveWithBlankDisplayNameDoesNotCallRepository() async {
+        let repo = MockProfileRepository()
+        let viewModel = ProfileViewModel(repo: repo)
+        viewModel.displayName = "   "
+        await viewModel.save()
+        #expect(await repo.updateCallCount == 0)
+        #expect(viewModel.profile == nil)
+    }
+
+    @Test func loadFailureSetsErrorAndLeavesFieldsEmpty() async {
+        let viewModel = ProfileViewModel(repo: MockProfileRepository(shouldThrow: true))
+        await viewModel.loadProfile()
+        #expect(viewModel.errorMessage != nil)
+        #expect(viewModel.displayName == "")
+        #expect(viewModel.profile == nil)
     }
 }
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run:
 ```bash
@@ -1550,7 +1584,7 @@ xcodebuild test -scheme Coterie -destination 'platform=iOS Simulator,name=iPhone
 ```
 Expected: FAIL — `cannot find 'ProfileViewModel' in scope`.
 
-- [ ] **Step 4: Implement ProfileViewModel**
+- [x] **Step 4: Implement ProfileViewModel**
 
 `ios/Coterie/Features/Profile/ProfileViewModel.swift`:
 ```swift
@@ -1601,15 +1635,15 @@ final class ProfileViewModel {
 }
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run:
 ```bash
 xcodebuild test -scheme Coterie -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -only-testing:CoterieTests/ProfileViewModelTests -quiet
 ```
-Expected: PASS (4 tests).
+Expected: PASS (6 tests — 4 from the plan, 2 added for the canSave guard and load failure).
 
-- [ ] **Step 6: Implement SupabaseProfileRepository**
+- [x] **Step 6: Implement SupabaseProfileRepository**
 
 `ios/Coterie/Features/Profile/SupabaseProfileRepository.swift`:
 ```swift
@@ -1655,7 +1689,7 @@ struct SupabaseProfileRepository: ProfileRepository {
 }
 ```
 
-- [ ] **Step 7: Build and commit**
+- [x] **Step 7: Build and commit**
 
 Run:
 ```bash
