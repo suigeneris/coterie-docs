@@ -1566,6 +1566,24 @@ struct ProfileViewModelTests {
         #expect(viewModel.profile == nil)
     }
 
+    @Test func saveReportsSuccess() async {
+        let viewModel = ProfileViewModel(repo: MockProfileRepository())
+        viewModel.displayName = "New Name"
+        #expect(await viewModel.save() == true)
+    }
+
+    @Test func saveReportsFailureWhenRepositoryThrows() async {
+        let viewModel = ProfileViewModel(repo: MockProfileRepository(shouldThrow: true))
+        viewModel.displayName = "New Name"
+        #expect(await viewModel.save() == false)
+    }
+
+    @Test func saveReportsFailureWhenBlockedByCanSave() async {
+        let viewModel = ProfileViewModel(repo: MockProfileRepository())
+        viewModel.displayName = "   "
+        #expect(await viewModel.save() == false)
+    }
+
     @Test func loadFailureSetsErrorAndLeavesFieldsEmpty() async {
         let viewModel = ProfileViewModel(repo: MockProfileRepository(shouldThrow: true))
         await viewModel.loadProfile()
@@ -1621,16 +1639,20 @@ final class ProfileViewModel {
         }
     }
 
-    func save() async {
-        guard canSave else { return }
+    @discardableResult
+    func save() async -> Bool {
+        guard canSave else { return false }
         isSaving = true
         errorMessage = nil
+        var didSave = false
         do {
             profile = try await repo.updateMyProfile(displayName: displayName, bio: bio)
+            didSave = true
         } catch {
             errorMessage = "Couldn't save your profile. Please try again."
         }
         isSaving = false
+        return didSave
     }
 }
 ```
@@ -1641,7 +1663,7 @@ Run:
 ```bash
 xcodebuild test -scheme Coterie -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -only-testing:CoterieTests/ProfileViewModelTests -quiet
 ```
-Expected: PASS (6 tests — 4 from the plan, 2 added for the canSave guard and load failure).
+Expected: PASS (9 tests — 4 from the plan, 2 for the canSave guard and load failure, 3 for the save() result added in Task 9).
 
 - [x] **Step 6: Implement SupabaseProfileRepository**
 
@@ -1700,9 +1722,21 @@ git commit -m "feat: ProfileRepository and tested ProfileViewModel"
 
 ---
 
-## Task 9: Profile setup screen
+## Task 9: Profile setup screen ✅ DONE
 
 **Repo:** `ios` — run all commands from `coterie/ios`.
+
+**As executed:** the plan advanced navigation with `await viewModel.save()` followed by
+`if viewModel.errorMessage == nil { onDone() }`. That gates on *absence of an error* rather
+than on *the save having happened* — and `save()` returns early without touching
+`errorMessage` whenever `canSave` is false, so a tap that saved nothing would still advance
+the user to home with an unsaved profile. `save()` is now `@discardableResult ... -> Bool`
+and the view calls `if await viewModel.save() { onDone() }`. Covered by `saveReportsSuccess`,
+`saveReportsFailureWhenRepositoryThrows` and `saveReportsFailureWhenBlockedByCanSave`.
+
+The same shape appears in Task 11's `RootView`, which drives routing off
+`authViewModel.authedUser` rather than off a submit result — that one is safe because
+`authedUser` is only assigned on success.
 
 **Files:**
 - Create: `ios/Coterie/Features/Profile/ProfileSetupView.swift`
@@ -1711,7 +1745,7 @@ git commit -m "feat: ProfileRepository and tested ProfileViewModel"
 - Consumes: `ProfileViewModel`.
 - Produces: `ProfileSetupView(viewModel:onDone:)`; calls `onDone()` after a successful save.
 
-- [ ] **Step 1: Implement ProfileSetupView**
+- [x] **Step 1: Implement ProfileSetupView**
 
 `ios/Coterie/Features/Profile/ProfileSetupView.swift`:
 ```swift
@@ -1734,8 +1768,7 @@ struct ProfileSetupView: View {
             }
             Button {
                 Task {
-                    await viewModel.save()
-                    if viewModel.errorMessage == nil { onDone() }
+                    if await viewModel.save() { onDone() }
                 }
             } label: {
                 if viewModel.isSaving { ProgressView() } else { Text("Continue") }
@@ -1750,7 +1783,7 @@ struct ProfileSetupView: View {
 }
 ```
 
-- [ ] **Step 2: Build, lint, commit**
+- [x] **Step 2: Build, lint, commit**
 
 Run:
 ```bash
