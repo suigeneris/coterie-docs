@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - **Three separate repos** under a plain `coterie/` container directory: `docs`, `ios`, `backend`. Each repo is self-contained (own `Makefile`, `Brewfile`, `.gitignore`, `README.md`) and clonable standalone. Paths below are repo-qualified; commands run from inside the named repo.
-- **Min iOS deployment target: 18.0.** Single app target; folders (not SPM packages) for grouping; boundaries enforced via repository protocols.
+- **Min iOS deployment target: 18.0.** ~~Single app target; folders (not SPM packages) for grouping~~ — **superseded 2026-08-10**: the design system now lives in its own repo and Swift package (`coterie-design`, product `OursDesignSystem`), so a hardcoded hex cannot bypass the tokens. Application code remains a single target with folder grouping; boundaries are still enforced via repository protocols.
 - **Project generation: XcodeGen** — `project.yml` is source of truth; `.xcodeproj` is git-ignored and generated.
 - **MVVM + coordinators.** Views hold no business logic or networking. View models depend on protocols, never `SupabaseClient`.
 - **Four-tier data layering:** domain models (used by view models/UI) · DTO (`Decodable`, inbound) · DTI (`Encodable`, outbound) · mappers between them. DTO/DTI/mappers live *inside* repository implementations only.
