@@ -522,6 +522,22 @@ confirmation. Support leading icons and trailing icon buttons such as password r
 
 Helper text sits below the field. Show a character count where a limit applies.
 
+**56pt height** (matching buttons, so a form and its primary action share one rhythm),
+**`radiusMd` (16pt)**, 16pt horizontal padding. Border is `mist` at 1pt at rest and 2pt when
+focused or in error. **Error outranks focus** — a field the user is fixing keeps showing what
+is wrong while they type in it.
+
+> **Resolved 2026-08-11 — input radius.** §04 lists inputs under both `radiusXs` (8pt) and
+> `radiusMd` (16pt), so the plates had to settle it. Measuring corner radius as a fraction of
+> height — which cancels out the plates' different scales — plate 11's fields are 0.13 and
+> plate 05's primary button is 0.14. They are drawn the same, so fields take whatever buttons
+> take: 16pt.
+
+> **Added 2026-08-11 — `focus`.** "Focused uses a lavender border" had no usable colour behind
+> it: `lavender` measures 1.16:1 on white, so a border drawn in it cannot be seen, well short
+> of the 3:1 WCAG asks of a control boundary. `focus` (`#8F64C3`) is the same hue taken down
+> to 4.39:1. The pale lavenders stay what they are — backing tints, not borders.
+
 ### Search
 
 Familiar search field with optional clear action. Used for global search and filtering.
