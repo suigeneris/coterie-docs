@@ -121,20 +121,20 @@ can never be text, an icon, or a thin line. Always place `ink` or `forest` on to
 
 ## 02 Typography
 
-**Instrument Serif + Inter.** Instrument Serif brings character and elegance; Inter ensures
-clarity and functionality. Both are open-source, so there is no licensing cost.
+**DM Serif Display + Inter.** The serif brings character and elegance; Inter ensures clarity
+and functionality. Both are open-source, so there is no licensing cost.
 
-Instrument Serif is for headlines, feature titles and editorial moments. Inter is for body
-text, UI, labels, buttons and all functional content. **The impact of the serif comes from
-its contrast with Inter — use it selectively.**
+The serif is for headlines, feature titles and editorial moments. Inter is for body text, UI,
+labels, buttons and all functional content. **The impact of the serif comes from its contrast
+with Inter — use it selectively.**
 
 ### Type scale (iOS)
 
 | Style | Font | Weight | Size | Line height | Use |
 |---|---|---|---|---|---|
-| `display` | Instrument Serif | Regular | 40 | 48 | Hero headlines |
-| `h1` | Instrument Serif | Regular | 32 | 40 | Page and section titles |
-| `h2` | Instrument Serif | Regular | 24 | 32 | Sub-section titles |
+| `display` | DM Serif Display | Regular | 40 | 48 | Hero headlines |
+| `h1` | DM Serif Display | Regular | 32 | 40 | Page and section titles |
+| `h2` | DM Serif Display | Regular | 24 | 32 | Sub-section titles |
 | `h3` | Inter | Semibold | 20 | 28 | Card titles, strong labels |
 | `body-lg` | Inter | Regular | 17 | 24 | Body (large) |
 | `body` | Inter | Regular | 15 | 22 | Body (default) |
@@ -149,6 +149,20 @@ its contrast with Inter — use it selectively.**
 - Maintain strong contrast for accessibility.
 - All functional typography must support **Dynamic Type**.
 
+> **Superseded 2026-08-11 — display serif changed.** Plate 02 specifies **Instrument Serif**,
+> and this document followed it until the onboarding screen was built. Instrument Serif ships
+> **Regular and Italic only**, so it cannot be bolded: `.fontWeight(.bold)` is silently a
+> no-op, and getting weight from it requires Core Text synthesis, which the system itself
+> advises against — *"prefer Instrument Serif Regular rather than bold for large statements
+> such as 'luxury, together'"*. At hero sizes it read too light against the approved design.
+>
+> **DM Serif Display** replaces it. Same two faces, no bold either, but a far heavier Regular
+> that delivers the required weight without synthesis. Plate 02 is therefore out of date on
+> typeface; its scale, line heights and usage rules still stand.
+>
+> Package tokens are named `serifRegular`/`serifItalic` rather than after the family, so a
+> future change does not ripple through call sites.
+>
 > **Reconciliation.** The plate omits a `button` token, but plate 05 specifies button labels
 > as Inter Semibold 16pt — recorded above. Labels use `body-sm` (13pt); no separate token.
 > The plate's `display` size reads `40 / 44`; plate 03 shows onboarding headlines at
