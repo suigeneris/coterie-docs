@@ -137,6 +137,7 @@ with Inter — use it selectively.**
 | `h2` | DM Serif Display | Regular | 24 | 32 | Sub-section titles |
 | `h3` | Inter | Semibold | 20 | 28 | Card titles, strong labels |
 | `body-lg` | Inter | Regular | 17 | 24 | Body (large) |
+| `body-lg-strong` | Inter | **Bold** | 17 | 24 | Strong label at body size |
 | `body` | Inter | Regular | 15 | 22 | Body (default) |
 | `body-sm` | Inter | Regular | 13 | 18 | Supporting text, labels |
 | `caption` | Inter | Regular | 11 | 16 | Captions, metadata |
@@ -162,6 +163,12 @@ with Inter — use it selectively.**
 >
 > Package tokens are named `serifRegular`/`serifItalic` rather than after the family, so a
 > future change does not ripple through call sites.
+>
+> **Added 2026-08-11 — `body-lg-strong`.** The scale had exactly one non-button semibold
+> style (`h3` at 20pt), so there was no way to make a smaller strong label without dropping to
+> Regular or misusing `button`. `body-lg-strong` is Inter **Bold** at body-large size, backed
+> by a bundled Inter Bold face. Note `.fontWeight(.bold)` is not an alternative: SwiftUI only
+> selects a bold face when the family ships one, and fails silently when it does not.
 >
 > **Reconciliation.** The plate omits a `button` token, but plate 05 specifies button labels
 > as Inter Semibold 16pt — recorded above. Labels use `body-sm` (13pt); no separate token.
