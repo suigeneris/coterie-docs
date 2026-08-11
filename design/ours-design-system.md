@@ -285,6 +285,27 @@ Disabled uses `disabled`/`mist` fill with `stone` label.
 
 **Avoid multiple primary buttons in the same decision group.**
 
+### Federated sign-in buttons (exception)
+
+Sign in with Apple and Sign in with Google sit **outside this hierarchy**. Both providers
+mandate how their buttons look — permitted fills, their own marks, approved label wording —
+and those rules override ours. A `forest`-outlined secondary button breaches both, and
+Apple's would fail App Review.
+
+| Property | Value |
+|---|---|
+| Fill | `surfaceBase` (white) |
+| Border | `mist`, 1pt |
+| Label | `ink`, `Continue with Apple` / `Continue with Google` |
+| Mark | `apple.logo` SF Symbol / Google's official four-colour mark |
+
+What we keep is the **geometry** both providers allow: 56pt height, `radiusMd`, and the
+`button` text style — so they sit in the same rhythm as the Ours buttons above them.
+
+Sign in with Apple should ultimately render through
+`AuthenticationServices.SignInWithAppleButton`, which guarantees compliance. Google forbids
+substitute marks, so the mark slot stays empty until their official asset is added.
+
 ### Icon buttons (square)
 
 | Size | Use |
