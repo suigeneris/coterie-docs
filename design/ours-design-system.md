@@ -287,24 +287,29 @@ Disabled uses `disabled`/`mist` fill with `stone` label.
 
 ### Federated sign-in buttons (exception)
 
-Sign in with Apple and Sign in with Google sit **outside this hierarchy**. Both providers
-mandate how their buttons look — permitted fills, their own marks, approved label wording —
-and those rules override ours. A `forest`-outlined secondary button breaches both, and
-Apple's would fail App Review.
+Sign in with Apple and Sign in with Google sit **outside the hierarchy above** — none of
+primary, secondary, tertiary or destructive describes "sign in with someone else's account" —
+but they are still **our** buttons, not the ones each provider publishes.
 
 | Property | Value |
 |---|---|
 | Fill | `surfaceBase` (white) |
 | Border | `mist`, 1pt |
 | Label | `ink`, `Continue with Apple` / `Continue with Google` |
-| Mark | `apple.logo` SF Symbol / Google's official four-colour mark |
+| Mark | `apple.logo` SF Symbol / Google's official mark, unaltered |
+| Geometry | 56pt height, `radiusMd`, `button` text style |
 
-What we keep is the **geometry** both providers allow: 56pt height, `radiusMd`, and the
-`button` text style — so they sit in the same rhythm as the Ours buttons above them.
+Both providers do publish button specs — Google's light theme wants a `#747775` stroke, Apple
+offers black and outlined styles of its own. **We use neither.** A screen where every button
+obeys a different house style stops looking like one product, and the provider rule that
+actually matters is the one covering the mark: Google forbids substitutes and recolouring, so
+theirs is their own asset at its own proportions.
 
-Sign in with Apple should ultimately render through
-`AuthenticationServices.SignInWithAppleButton`, which guarantees compliance. Google forbids
-substitute marks, so the mark slot stays empty until their official asset is added.
+Only the label wording is taken from the providers, since both publish a closed list and
+`Continue with …` is on each.
+
+Sign in with Apple may need to move to `AuthenticationServices.SignInWithAppleButton` when it
+is wired up, if review asks for it.
 
 ### Icon buttons (square)
 
