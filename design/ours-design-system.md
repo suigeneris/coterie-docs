@@ -659,8 +659,12 @@ the highest-stakes flow in the product and gets the clearest possible messaging.
    confirm the ramp is reference-only and can be dropped.
 2. **`info` at 4.51:1 on `cream`** is the computed minimum and leaves no headroom. Darken
    further, or restrict `info` text to white surfaces.
-3. **Dark mode** — plate 07 refers to shadow behaviour in dark mode, but no dark palette is
-   defined anywhere. Either define one or state explicitly that the app is light-only.
+3. ~~Dark mode~~ — **decided 2026-08-11: the app is light-only.** No dark palette will be
+   defined for now. The app sets `UIUserInterfaceStyle: Light`, so it renders light even on a
+   device in dark mode. Without that lock the tokens would stay light while system chrome —
+   text fields, sheets, the keyboard, default label colours — flipped dark, giving a mixed
+   result worse than either mode. Plate 07's note about dark-mode shadows is therefore
+   dormant, not lost. Revisit before public launch: light-only is increasingly conspicuous.
 4. **Onboarding copy** — plate 03's *"luxury, together"* now supersedes the three-slide
    carousel copy in the product spec §6. The product spec needs updating to match, or a
    decision that the plate copy applies only to the first slide.
