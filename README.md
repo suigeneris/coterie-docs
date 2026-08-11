@@ -3,7 +3,7 @@
 Whole-project documentation: product spec, implementation plans, and decisions that
 span more than one platform. Platform-specific docs live in their own repo.
 
-Part of a three-repo project:
+Part of a four-repo project:
 
 | Repo | Local | Contents |
 |---|---|---|
@@ -12,9 +12,9 @@ Part of a three-repo project:
 | [`coterie-design`](https://github.com/suigeneris/coterie-design) | `coterie/design` | Ours design system as a Swift package |
 | [`coterie-docs`](https://github.com/suigeneris/coterie-docs) | `coterie/docs` | this repo — spec, plans, and the **design system source of truth** |
 
-## Getting all three
+## Getting all four
 
-All three repos are **private**, so authentication must be working before any clone will
+All four repos are **private**, so authentication must be working before any clone will
 succeed. The GitHub repos are `coterie-*` prefixed; locally they sit unprefixed inside a
 plain `coterie/` container folder, which is not itself a repo — so each clone needs an
 explicit target directory.
@@ -55,7 +55,7 @@ are. Explicit `https://` URLs always use the credential helper from Step 1.
 Not inherited from a clone, and deliberately not set globally:
 
 ```bash
-for r in docs ios backend; do
+for r in docs ios backend design; do
   git -C $r config user.name  "suigeneris"
   git -C $r config user.email "jona2k5@yahoo.com"
 done
