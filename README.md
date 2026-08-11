@@ -5,11 +5,12 @@ span more than one platform. Platform-specific docs live in their own repo.
 
 Part of a three-repo project:
 
-| Repo | Contents |
-|---|---|
-| [`coterie-ios`](https://github.com/suigeneris/coterie-ios) | SwiftUI app |
-| [`coterie-backend`](https://github.com/suigeneris/coterie-backend) | Supabase schema, migrations, RLS, pgTAP tests |
-| [`coterie-docs`](https://github.com/suigeneris/coterie-docs) | this repo |
+| Repo | Local | Contents |
+|---|---|---|
+| [`coterie-ios`](https://github.com/suigeneris/coterie-ios) | `coterie/ios` | SwiftUI app |
+| [`coterie-backend`](https://github.com/suigeneris/coterie-backend) | `coterie/backend` | Supabase schema, migrations, RLS, pgTAP tests |
+| [`coterie-design`](https://github.com/suigeneris/coterie-design) | `coterie/design` | Ours design system as a Swift package |
+| [`coterie-docs`](https://github.com/suigeneris/coterie-docs) | `coterie/docs` | this repo — spec, plans, and the **design system source of truth** |
 
 ## Getting all three
 
@@ -36,7 +37,11 @@ mkdir -p ~/Developer/coterie && cd ~/Developer/coterie
 git clone https://github.com/suigeneris/coterie-docs.git    docs
 git clone https://github.com/suigeneris/coterie-ios.git     ios
 git clone https://github.com/suigeneris/coterie-backend.git backend
+git clone https://github.com/suigeneris/coterie-design.git  design
 ```
+
+The GitHub names are `coterie-*` prefixed; locally they are not. `coterie/` itself is a plain
+folder, not a repo.
 
 Explicit HTTPS URLs, not `gh repo clone`. `gh repo clone` rewrites the URL using gh's
 *per-host* `git_protocol`, which can be `ssh` even when the global setting is `https`
@@ -90,6 +95,7 @@ cd ../ios   && make setup && make test
 ```
 specs/    product & technical specification
 plans/    phased implementation plans, one per delivery slice
+design/   the Ours design system and its 14 plates
 ```
 
 ## Contents
@@ -97,6 +103,8 @@ plans/    phased implementation plans, one per delivery slice
 |---|---|
 | [specs/2026-08-07-coterie-mvp-design.md](specs/2026-08-07-coterie-mvp-design.md) | MVP design spec — product, data model, architecture |
 | [plans/2026-08-07-plan-1-foundation-and-auth.md](plans/2026-08-07-plan-1-foundation-and-auth.md) | Plan 1 — foundation, auth, profile setup |
+| [plans/2026-08-09-ci-setup.md](plans/2026-08-09-ci-setup.md) | CI — both pipelines and the self-hosted runner |
+| [design/ours-design-system.md](design/ours-design-system.md) | **Ours design system** — tokens, components, plates |
 
 ## Conventions
 - File paths in plans are **repo-qualified** (`ios/…`, `backend/…`) because the code lives

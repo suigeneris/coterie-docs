@@ -258,6 +258,14 @@ expressive moments where it adds impact.
 All buttons: **56pt height, `radiusMd` (16pt), 24pt horizontal padding, Inter Semibold 16pt**,
 minimum touch target **44×44pt**. Every type defines **default, pressed, disabled and loading**.
 
+**Labels are sentence case** — `Next`, `Get started`, `View collection`, `Remove item`.
+
+> **Superseded 2026-08-11 — button label case.** Plate 05 draws every label lowercase
+> (`next`, `view collection`, `learn more`, `remove`), and the app matched that until the
+> onboarding screen was reviewed. Sentence case now applies, which also aligns buttons with
+> §02's typography rule — *"use sentence case, avoid all caps except for small labels"* —
+> that the lowercase plate labels contradicted.
+
 | Type | Default | Pressed | Use |
 |---|---|---|---|
 | **Primary** | `forest` fill, white label | Darker fill | The main action on a screen |
