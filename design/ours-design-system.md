@@ -37,6 +37,7 @@ A calm, confident palette inspired by heritage, nature and timeless luxury.
 | `cream` | `#F6F3EE` | App background and soft warm surfaces |
 | `lavender` | `#E9E6FF` | Highlights, feature surfaces and moments of delight. Used sparingly |
 | `yellow` | `#F2E074` | Attention badges and small accents |
+| `periwinkle` | `#C9D3F3` | Secondary feature surface, paired with `lavender` in layered compositions |
 
 ### Neutrals
 
@@ -89,7 +90,7 @@ UI components **3:1**.
 | `forest` on `lavender` / `yellow` | 9.92 / 9.03 |
 | `success` / `warning` / `error` / `info` on `cream` | 4.74 / 4.85 / 5.08 / 4.51 |
 
-**Lavender and yellow are fill colours only.** Yellow measures **1.34:1** against white — it
+**Lavender, periwinkle and yellow are fill colours only.** Yellow measures **1.34:1** against white — it
 can never be text, an icon, or a thin line. Always place `ink` or `forest` on top of them.
 
 > **Reconciliation.** Three plate tokens failed the WCAG AA commitment made in plate 13 and
@@ -99,8 +100,10 @@ can never be text, an icon, or a thin line. Always place `ink` or `forest` on to
 > 4.51:1 is marginal; darken further if you want headroom.
 >
 > **Yellow** is used in plates 03 and 14 but never named or given a hex; `#F2E074` was
-> supplied directly. **Periwinkle** appeared only in the superseded markdown and has been
-> **dropped** — lavender covers secondary surfaces.
+> supplied directly. **Periwinkle** was dropped during reconciliation because no plate named
+> it, then **reinstated 2026-08-11** at `#C9D3F3` — the approved onboarding design pairs it
+> with `lavender` in the layered card stack. Fill only, and never used to distinguish a state
+> from `lavender`: they measure 1.02:1 against each other.
 >
 > **Do not sample colours from the plate images.** They are downscaled screenshots and every
 > labelled swatch disagrees with its own pixels: forest `#0F3D34` samples as `#0B4335`, error
