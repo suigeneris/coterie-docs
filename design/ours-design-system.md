@@ -37,7 +37,8 @@ A calm, confident palette inspired by heritage, nature and timeless luxury.
 | `cream` | `#F6F3EE` | App background and soft warm surfaces |
 | `lavender` | `#E9E6FF` | Highlights, feature surfaces and moments of delight. Used sparingly |
 | `yellow` | `#F2E074` | Attention badges and small accents |
-| `periwinkle` | `#C9D3F3` | Secondary feature surface, paired with `lavender` in layered compositions |
+| `lavenderDeep` | `#E4D6F7` | Decorative surfaces that must read as purple against `cream` |
+| `periwinkle` | `#C9D3F3` | Secondary feature surface, paired with `lavenderDeep` in layered compositions |
 
 ### Neutrals
 
@@ -90,7 +91,7 @@ UI components **3:1**.
 | `forest` on `lavender` / `yellow` | 9.92 / 9.03 |
 | `success` / `warning` / `error` / `info` on `cream` | 4.74 / 4.85 / 5.08 / 4.51 |
 
-**Lavender, periwinkle and yellow are fill colours only.** Yellow measures **1.34:1** against white — it
+**Lavender, `lavenderDeep`, periwinkle and yellow are fill colours only.** Yellow measures **1.34:1** against white — it
 can never be text, an icon, or a thin line. Always place `ink` or `forest` on top of them.
 
 > **Reconciliation.** Three plate tokens failed the WCAG AA commitment made in plate 13 and
