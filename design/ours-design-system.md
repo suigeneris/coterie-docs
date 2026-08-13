@@ -466,6 +466,14 @@ Familiar iOS patterns with Ours styling. Navigation should feel invisible.
 | **Full screen** | Immersive or multi-step flows |
 | **Modal** | Focused tasks and decisions |
 
+### Vocabulary
+
+The co-ownership group is a **coterie** in everything the user reads. The table is `pools`
+and the spec says "pool" throughout — a deliberate internal/external split, recorded here
+because three names were in play: the spec's `pool`, the app's `coterie`, and this document's
+own `collection` (in "Leave collection", "View collection"). Those examples describe a
+coterie. Use **coterie** in UI copy; `pool` stays in the schema and the spec.
+
 ### Bottom tab bar
 
 - **5 tabs maximum.** The centre action is for primary creation or add flows.
@@ -475,6 +483,14 @@ Familiar iOS patterns with Ours styling. Navigation should feel invisible.
 
 > The plate's example tabs (home · collection · **+** · deals · profile) are illustrative
 > only. The product's real information architecture is defined by the product spec, not here.
+
+> **Decided 2026-08-13 — the app's tabs.** Discover · Coteries · **+** · Profile. Chat sits
+> inside a coterie and booking inside an item, both following the spec's own journeys: a
+> thread or a calendar belongs to the thing it is about, and a top-level tab for either would
+> be empty until the user joins something. Notifications are a nav-bar bell, settings a row in
+> Profile. Note the create action cannot be literally centred with an even number of slots —
+> it sits fourth of four minus one, just right of centre. A floating action button (§05, 56pt)
+> is the alternative if that ever grates.
 
 ### Navigation bar
 
