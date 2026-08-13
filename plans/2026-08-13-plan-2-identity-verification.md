@@ -339,7 +339,7 @@ tried.** If they do work, Tasks 3 and 5 unblock earlier than assumed.
 
 ---
 
-## Task 1: Migration `0002_verification.sql` — data model and the privileged writer
+## Task 1: Migration `0002_verification.sql` — data model and the privileged writer ✅ DONE
 
 **Repo:** `backend`. **Not blocked by Task 0.**
 
@@ -445,7 +445,9 @@ revoke all on function public.apply_verification_outcome(text, uuid, text, text,
 grant execute on function public.apply_verification_outcome(text, uuid, text, text, text) to service_role;
 ```
 
-Two things to check when running this, because the plan is guessing:
+**Both checked 2026-08-13.** A newly created function grants `execute` to `PUBLIC` by default
+and `authenticated` and `anon` inherit it — so the revokes are load-bearing, not defensive.
+Removing them fails the pgTAP suite (tests 8 and 9). Original notes:
 1. Whether `revoke … from public` is enough on its own in this Postgres version, or whether the
    per-role revokes are redundant. Keep them either way — they are what the pgTAP assertions read.
 2. Whether `default privileges` in this Supabase version already grant `execute` on new functions
@@ -531,7 +533,7 @@ git add -A && git commit -m "feat(db): verification sessions, webhook ledger and
 
 ---
 
-## Task 2: Edge Function plumbing — config, secrets, Makefile, and proving caller auth
+## Task 2: Edge Function plumbing — config, secrets, Makefile, and proving caller auth ✅ DONE
 
 **Repo:** `backend`. **Not blocked by Task 0** (uses a fake key).
 
@@ -573,7 +575,27 @@ fn-test:
 	deno test --allow-env --allow-net supabase/functions
 ```
 
-- [ ] **Step 4: Settle the caller-auth question empirically — do not guess**
+- [x] **Step 4: Settle the caller-auth question empirically — do not guess** ✅ ANSWERED 2026-08-13
+
+**Result, against CLI 2.112.0 / edge-runtime 1.74.3:**
+
+| Caller | Result |
+|---|---|
+| No credentials | `401` |
+| Publishable key only | `401 INVALID_CREDENTIALS` |
+| Legacy anon JWT | `401 INVALID_CREDENTIALS` |
+| Real user JWT | `200`, `authMode: "user"` |
+
+`auth: "user"` is sufficient on its own — the extra guard this step contemplated is not needed
+to keep publishable-key callers out. The positive control is what makes this conclusive; four
+401s alone would equally have described a broken function.
+
+**Correction to Task 3:** the caller's id is at **`ctx.userClaims.id`**, not
+`ctx.userClaims.sub`. `sub` appears only nested inside `userMetadata`, so the guard sketched
+below would have rejected every legitimate caller. `ctx.supabase.auth.getUser()` also returns
+it. Full context keys: `supabase`, `supabaseAdmin`, `userClaims`, `jwtClaims`, `authMode`,
+`authKeyName`.
+
 
 CLI 2.112.0 writes `verify_jwt = false` into `config.toml` for every new function and moves the
 decision to the handler's `withSupabase({ auth: … })` mode. The new API-key system
