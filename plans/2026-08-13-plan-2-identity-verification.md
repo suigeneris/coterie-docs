@@ -654,7 +654,7 @@ git add -A && git commit -m "chore(functions): edge function config, secrets sca
 
 ---
 
-## Task 3: `create-verification-session` Edge Function
+## Task 3: `create-verification-session` Edge Function ✅ DONE
 
 **Repo:** `backend`. **Blocked on Task 0 Step 5** for a live run; the code and its unit tests are
 not blocked.
@@ -679,7 +679,7 @@ Then in its `deno.json`, add `"stripe": "npm:stripe@^22"` alongside the scaffold
 
 Sketch. The rules it must enforce, in order:
 
-1. `withSupabase({ auth: "user" })`; derive the user id **from `ctx.userClaims.sub` only**. Never
+1. `withSupabase({ auth: "user" })`; derive the user id **from `ctx.userClaims.id` only** (see Task 2 Step 4 — `.sub` is not populated at the top level). Never
    from the request body — that is the entire "a user can only create a session for themselves"
    guarantee, and a `user_id` parameter in the body would hand it away.
 2. Short-circuit if the profile is already `verified` → `409`. No point charging for it.
@@ -736,7 +736,7 @@ git add -A && git commit -m "feat(functions): create Stripe Identity verificatio
 
 ---
 
-## Task 4: `stripe-identity-webhook` Edge Function
+## Task 4: `stripe-identity-webhook` Edge Function ✅ DONE
 
 **Repo:** `backend`. **Not blocked by Task 0** — signature verification is testable entirely
 offline with a made-up signing secret.
@@ -835,7 +835,36 @@ git add -A && git commit -m "feat(functions): Stripe Identity webhook with signa
 
 ---
 
-## Task 5: End-to-end locally, plus the missed-webhook fallback
+## Task 5: End-to-end locally, plus the missed-webhook fallback ⚠️ PARTIALLY DONE
+
+**Live run passed 2026-08-14.** `create-verification-session` returns a real `vs_…`, an `ek_…`
+and a `https://verify.stripe.com/start/test_…` URL; a second call returns the **same** session
+id, so reuse works and a double tap cannot be billed twice. The audit row is written before the
+sheet opens, the profile correctly stays `unverified`, and a publishable-key-only caller is
+refused with 401.
+
+**Answers two open questions:**
+- The pinned API version `2026-07-29.dahlia` **is accepted by Stripe** when minting the
+  ephemeral key. Whether the iOS SDK accepts the same string is still open until Task 7.
+- Identity in test mode requires **mobile SDK access enabled** at
+  `dashboard.stripe.com/settings/identity` — separate from submitting the application. Until
+  it is on, every call fails with *"This account does not have access to use Identity's mobile
+  SDKs"*, and **no session is created**, so there is nothing to clean up.
+
+**Gotcha that cost real time:** the Stripe CLI's logged-in account and the `sk_test_` key in
+`.env` can be different accounts — a sandbox versus the main account. Stripe's error log URL
+names the key's account, which is how it was spotted. `stripe listen` forwards from the CLI's
+account, so if they disagree the webhook can never match a session. Check both agree before
+any live run:
+
+```bash
+curl -s https://api.stripe.com/v1/account -u "$STRIPE_SECRET_KEY:" | grep -o '"id": "[^"]*"'
+stripe config --list | grep account_id
+```
+
+**Still to do:** the missed-webhook fallback (`sync-verification-status`), and an end-to-end run
+through the hosted URL to observe real status transitions.
+
 
 **Repo:** `backend`. **Blocked on Task 0.**
 
