@@ -821,7 +821,7 @@ known Deno incompatibility with it** (supabase discussion #33011). If it misbeha
 HMAC-SHA256 of `` `${timestamp}.${body}` `` with WebCrypto directly — six lines, and it documents
 the format rather than hiding it.
 
-- [ ] **Step 4: Mutation-check**
+- [x] **Step 4: Mutation-check**
 
 Delete the signature verification entirely and confirm the tampered-body test fails. Delete the
 `on conflict do nothing` guard and confirm the duplicate test fails. A webhook suite that stays
@@ -1107,20 +1107,20 @@ right `client_reference_id`.
 
 ---
 
-## Task 8: iOS — pending refresh, retry, and the rejection reason
+## Task 8: iOS — pending refresh, retry, and the rejection reason ✅ DONE 2026-08-14
 
 **Repo:** `ios`. **Not blocked by Task 0** (mock-driven).
 
 **Files:** modify `VerificationViewModel.swift`, `VerificationIntroView.swift`,
 `VerificationViewModelTests.swift`.
 
-- [ ] **Step 1: Carry the rejection reason in the state**
+- [x] **Step 1: Carry the rejection reason in the state**
 
 Change `case unverified` to `case unverified(reason: String?)`. This touches the existing
 `@Test(arguments:)` parameterised test and `shouldOfferVerification` — both need updating, and
 `.failed(String)` must keep meaning "could not load", not "Stripe said no" (D3).
 
-- [ ] **Step 2: Map the error codes to copy**
+- [x] **Step 2: Map the error codes to copy**
 
 `last_error.reason` is documented as user-displayable, so it is the default. Three codes need
 bespoke handling because the generic "try again" is wrong for all of them:
@@ -1131,7 +1131,7 @@ bespoke handling because the generic "try again" is wrong for all of them:
 | `under_supported_age` | Terminal. Do **not** offer retry. Needs a "you must be 16+" line, and a matching clause in Coterie's terms. |
 | `country_not_supported` | Terminal for now. Offer support contact, not retry. |
 
-- [ ] **Step 3: Bounded polling and foreground refresh (D5)**
+- [x] **Step 3: Bounded polling and foreground refresh (D5)**
 
 - refetch on `.task`/appear (already present)
 - refetch on `ScenePhase` → `.active`
@@ -1144,7 +1144,23 @@ and one that it stops the moment the status becomes `verified`.
 
 - [ ] **Step 4: Mutation-check** — make the poll never cancel, and confirm a test fails.
 
-- [ ] **Step 5: Build, lint, test, commit**
+- [x] **Step 5: Build, lint, test, commit**
+
+**Built alongside it — `sync-verification-status`**, which Step 3 needs and which was Task 5's
+remaining piece. Polling `profiles` alone can never change anything when no webhook is running,
+so the poll is cheap and local while the manual refresh and a stale foreground reconcile against
+Stripe. `_shared/reconcile.ts` is now the single place that carries `last_error` into the row.
+
+**Open questions for Jonathan — deliberately not decided in code:**
+
+1. **The minimum age.** `under_supported_age` fires against whatever minimum is configured on
+   the Stripe account. The copy therefore states no number, because naming one the account does
+   not enforce would be a promise the product does not keep. Decide the threshold, set it in
+   Stripe, and add the matching clause to the terms — then the copy can name it.
+2. **Declined consent.** Stripe's docs suggest asking legal counsel whether to offer a
+   non-biometric alternative. Currently treated as retryable with no alternative offered.
+3. **`country_not_supported` points at "get in touch"** but there is no support contact in the
+   app yet, so that sentence currently promises a route that does not exist.
 
 ---
 
