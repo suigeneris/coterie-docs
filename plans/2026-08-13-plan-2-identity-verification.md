@@ -1031,7 +1031,7 @@ git add -A && git commit -m "feat: verification repository, DTOs and error mappi
 
 ---
 
-## Task 7: iOS — StripeIdentity SDK and wiring the inert button
+## Task 7: iOS — StripeIdentity SDK and wiring the inert button ⚠️ CODE DONE, DEVICE RUN OUTSTANDING
 
 **Repo:** `ios`. **Blocked on Task 0 Steps 4 and 5.**
 
@@ -1320,6 +1320,21 @@ before Jonathan finishes Stripe's onboarding. Start Task 1 immediately.
 ---
 
 ## Notes / Known follow-ups
+
+**TODO — brand logo in the Stripe sheet.** `IdentityVerificationPresenter.brandLogo()` currently
+returns an SF Symbol placeholder (`bag.fill`, 32pt). Stripe shows it at the top of the
+verification sheet and App Store review sees it, so it must be replaced with a real Ours mark
+before submission. `IdentityVerificationSheet.Configuration(brandLogo:)` takes a `UIImage`,
+recommended 32×32pt — ours, never Stripe's.
+
+**Camera usage string, as shipped 2026-08-14:** *"We use your camera to photograph your ID and
+take a selfie, so we can confirm you're a real person."* User-visible and reviewed; revisit
+whether it should name Stripe, given the screen behind it already does.
+
+**Size cost measured 2026-08-14:** debug simulator build 36MB → 47MB with StripeIdentity added.
+Not a thinned archive, so the App Store delta will be smaller. D1's exit — dropping the SDK for
+the hosted URL — remains open and needs no backend change.
+
 
 - **Confirmed gap: `profiles` is missing `stripe_customer_id` and `stripe_connect_account_id`.**
   Spec §4 lists both; `0001_profiles.sql` has neither. **Recommendation: do not add them in this
