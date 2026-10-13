@@ -66,6 +66,8 @@ Failure: user taps Sign out on a dead connection. Both calls fail, `currentUser`
 
 The existing test passes for the wrong reason: `MockAuthRepository(shouldThrow: true)` leaves `stubbedUser` nil, so `currentUser` returns nil regardless of the bug.
 
+**Correction (2026-10-13, Task 5 review).** The keychain half of this is false. In supabase-swift 2.54.1 (`AuthClient.swift:1094-1097`) `signOut(scope: .global)` removes the local session and emits `.signedOut` *before* the `/logout` call, which is the only step that throws. A failed sign-out leaves the device signed out; only the server was not told. Task 5's change stands as hardening, and fix round 1 replaces the misleading banner with one that says so. The cold-launch variant the review found instead is Task 10.
+
 ### F6 — HIGH. `load()` blames the user's network for every error
 SFH N4. `VerificationViewModel.swift:164` and `ProfileViewModel.swift:81` both hardcode `"Check your connection and try again."` for an error they never inspect. `refresh()` was fixed to surface the mapped error; `load()` — called from four places — was not. An RLS denial, an expired JWT, a 500, or a `DecodingError` all tell the user to check their wifi, behind a retry button that will fail identically forever.
 
@@ -1162,6 +1164,16 @@ the database — were not gated by anything. make fn-test already existed.
 The workflow change is unverified until it runs on GitHub; make fn-test passes
 locally."
 ```
+
+---
+
+### Task 10: A cold launch offline must not sign the user out
+
+Added 2026-10-13 from the Task 5 review. Same class as F5, not introduced by this plan. **Not yet briefed** — steps to be written before dispatch.
+
+`RootView.swift:50-58`: with an expired access token (≈1h since last use) and no network, `currentUser` throws (the refresh fails), `user = nil`, and `coordinator.start(nil)` routes to `.auth`. `sessionChanges` does not rescue it: the client uses the default `emitLocalSessionAsInitialSession: false`, so `initialSession` is itself a refreshing read and emits nil. It corrects only when a later auto-refresh succeeds after the connection returns.
+
+**Direction:** when the read throws, route on the locally stored session (`client.auth.currentSession`, no network), or set `emitLocalSessionAsInitialSession: true` and check what that changes for every `sessionChanges` consumer. Decide by reading the 2.54.1 source, not the docs.
 
 ---
 
