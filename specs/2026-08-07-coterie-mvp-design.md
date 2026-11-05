@@ -39,6 +39,7 @@ The behavioural insight: people want **access** to luxury more than constant **p
 
 ### Product constraints (locked)
 - **Categories: bags and shoes only** for MVP.
+- **New items only** — second-hand items belong to the future marketplace.
 - **Equal shares only** — every owner holds exactly one equal share; a pool is **2, 3, or 4 people**. No fractional or weighted ownership.
 - **Creator is automatically owner #1** and commits their share on publish (skin in the game).
 - **Size is load-bearing for shoes** — for wearables, "same size" is effectively a join requirement; the size badge must be impossible to miss. Bags are size-agnostic.
@@ -136,7 +137,7 @@ pools                   (a co-ownership pool for ONE specific item)
   category              (bag | shoes)
   item_name, brand, description, photos[]
   size                  (nullable; REQUIRED & prominent for shoes, hidden for bags)
-  item_attributes       JSONB (color, material, condition, release year, ...)
+  item_attributes       JSONB (color, material, release year, ...)
   target_amount         (item price + fees)
   owner_count           (2 | 3 | 4)
   price_per_share       (= target_amount / owner_count, rounded up to the penny)
@@ -234,7 +235,7 @@ Discover feed → Pool detail (item, size, price/share, slots 3/4, co-owners)
 
 **2. Create a pool (supply side — origination)**
 ```
-Create → category (bag/shoes) → item details (name, brand, photos, optional product link, size if shoes, condition)
+Create → category (bag/shoes) → item details (name, brand, up to 4 photos, optional product link, size if shoes)
  → target price + owner_count (2/3/4) → review your share cost
  → verify identity → save card → live in Discover as "1/N filled"
 ```
