@@ -24,7 +24,7 @@ The behavioural insight: people want **access** to luxury more than constant **p
 ### In the MVP
 1. **Identity verification** — real people only, via Stripe Identity.
 2. **Open pool origination** — any verified user can create a co-ownership pool for a specific item.
-3. **Buy a share with real money** — funds captured and held in escrow until the pool is fully funded, then the item is purchased.
+3. **Buy a share with real money** — the buyer's card is saved on joining and charged when the pool is full, then the item is purchased.
 4. **Ownership registry (cap table)** — who owns which equal share of which item.
 5. **Shared calendar booking** + **per-use fee** on each booking.
 6. **Ratings & reputation** — trust between strangers.
@@ -32,7 +32,7 @@ The behavioural insight: people want **access** to luxury more than constant **p
 8. **Logistics = manual** — the app shows item/custody status; the operator (you) runs the hub by hand.
 
 ### Deferred (post-MVP)
-- **Share resale / exit marketplace** — pilot owners are locked in for the pilot term (communicated upfront). Biggest single scope-saver.
+- **Share resale marketplace** — owners keep their share indefinitely and can't sell it until the marketplace exists (communicated upfront). Biggest single scope-saver.
 - Automated logistics / shipping automation.
 - Depreciation-pricing / share-valuation engine.
 - Stranger-matching engine (size-aware) beyond simple browse + self-select.
@@ -40,9 +40,10 @@ The behavioural insight: people want **access** to luxury more than constant **p
 ### Product constraints (locked)
 - **Categories: bags and shoes only** for MVP.
 - **Equal shares only** — every owner holds exactly one equal share; a pool is **2, 3, or 4 people**. No fractional or weighted ownership.
-- **Creator is automatically owner #1** and pays their share on publish (skin in the game).
+- **Creator is automatically owner #1** and commits their share on publish (skin in the game).
 - **Size is load-bearing for shoes** — for wearables, "same size" is effectively a join requirement; the size badge must be impossible to miss. Bags are size-agnostic.
-- **Time allocation:** equal entitlement (`term_days / owner_count`), booked on a shared calendar, **plus a per-use fee** per booking.
+- **No term:** ownership is indefinite. An owner keeps their share until they choose to sell it.
+- **Time allocation:** equal entitlement between owners (the exact allowance, such as days per year, is decided in the booking plan), booked on a shared calendar, **plus a per-use fee** per booking, set by the platform.
 - **Exit reality:** shares are (post-MVP) tradeable but depreciate — a share is a stake in a *used* asset, so owners may not recover full value. Framed as "buy access, recover some value later," not an investment.
 
 ---
@@ -71,7 +72,7 @@ Supabase
         │  server-to-server
         ▼
 Stripe
-  Connect   → escrow, payouts (share payments, per-use fees, deposits)
+  Connect   → payouts (share payments, per-use fees, deposits)
   Identity  → verification
 ```
 
@@ -138,11 +139,12 @@ pools                   (a co-ownership pool for ONE specific item)
   item_attributes       JSONB (color, material, condition, release year, ...)
   target_amount         (item price + fees)
   owner_count           (2 | 3 | 4)
-  price_per_share       (= target_amount / owner_count)
-  per_use_fee
+  price_per_share       (= target_amount / owner_count, rounded up to the penny)
+  per_use_fee           (set by the platform)
   slots_filled          (0 → owner_count)
-  status                (draft | funding | funded | active | closed | cancelled)
-  funding_deadline, term_end_date, created_at
+  status                (funding | funded | active | closed | cancelled)
+  source_url            (optional link to the product)
+  created_at
 
 pool_memberships        (THE CAP TABLE — one equal share each)
   id, pool_id → pools, owner_id → profiles, joined_at
@@ -151,7 +153,7 @@ pool_memberships        (THE CAP TABLE — one equal share each)
 share_purchases         (immutable log of each buy transaction)
   id, pool_id, buyer_id, amount
   stripe_payment_intent_id
-  status                (escrowed | settled | refunded)
+  status                (charged | settled | refunded)
   created_at
 
 ledger                  (append-only money record — source of truth for $)
@@ -181,40 +183,41 @@ messages                (per-pool group chat)
 **Invariants — enforced server-side, never in the client:**
 1. **No overselling** — a pool never exceeds `owner_count` members; checked transactionally inside `buyShare`.
 2. **Verified-only actions** — creating a pool, buying a share, or booking requires `verification_status = verified`.
-3. **Equal-time entitlement** — each owner's allowance = `term_days / owner_count`; `bookItem` rejects dates exceeding remaining allowance or colliding with an existing booking.
-4. **Ledger is append-only** — money state is *derived* by summing ledger rows, never edited in place. This keeps escrow honest and doubles as an audit trail.
+3. **Equal-time entitlement** — every owner gets the same allowance; `bookItem` rejects dates exceeding remaining allowance or colliding with an existing booking.
+4. **Ledger is append-only** — money state is *derived* by summing ledger rows, never edited in place. This keeps the money honest and doubles as an audit trail.
 
 ---
 
-## 5. Escrow / Money Lifecycle
+## 5. Money Lifecycle
 
-The part we cannot get wrong. A pool takes time to fill (days/weeks), so card authorizations (which expire in ~7 days) won't work. We use **capture-and-hold**: money is captured into the platform escrow balance when a member joins, tagged to the pool in the ledger, and either **settled** (pool fills → item bought) or **refunded** (deadline passes → everyone made whole).
+The part we cannot get wrong. **Revised 2026-11-05:** this replaces capture-on-join. A pool takes time to fill, and card holds normally last about 7 days, so neither a hold nor charging early fits. Instead, **each member's card is saved when they join, and every card is charged when the pool is full.** Members agree to this upfront, and that agreement is recorded. Nothing is held while a pool fills, so there are no refunds to run and no funding deadline.
 
 **Pool funding state machine:**
 ```
-draft ─publish→ funding ─last slot fills→ funded ─item procured→ active ─term ends→ closed
-                   │
-                   └─deadline passes, not full→ cancelled (refund all)
+funding ─last slot fills→ funded ─all payments in, item procured→ active
+   │
+   └─last member leaves→ cancelled
 ```
+
+`closed` is reserved for when an item leaves the platform, which isn't defined yet.
 
 **Money movements:**
 
 | Event | Money action | Ledger entry |
 |---|---|---|
-| Member joins (incl. creator) | Stripe captures `price_per_share` → held in platform escrow | `share_purchase` / `escrowed` |
-| Final slot fills → **funded** | Funds committed to buying the item | (no move) |
-| Item procured (manual, pilot) | Escrow settles to cover the purchase | `share_purchase` → `settled` |
-| Deadline hits, not full | Every captured payment auto-refunded | `refund` per member |
+| Member joins (incl. creator) | Card saved, nothing charged | (none) |
+| Final slot fills → **funded** | Every saved card is charged `price_per_share` | `share_purchase` per member |
+| Item procured (manual, pilot) | Payments cover the purchase | `share_purchase` → `settled` |
 | Owner books dates | `per_use_fee` captured; refundable **deposit hold** placed | `per_use_fee`, `deposit_hold` |
 | Item returned clean | Deposit hold released | `deposit_release` |
 
-**Why capture-on-join, not authorize:** a pool may take weeks to fill; auth holds die in one. Capturing real money means slots are backed by committed funds — no "funded on paper, declines on capture" surprises.
-
 **Critical edge cases (server-side):**
-- **Race on the last slot** — `buyShare` takes a transactional lock; first commits, second is rejected *before* Stripe captures (no charge).
-- **Payment fails mid-join** — slot never granted, nothing held.
-- **Refund on cancellation** — driven off the append-only ledger → idempotent and auditable; failed refunds retry and alert the operator.
-- **Creator's money** — captured/escrowed like everyone else on publish.
+- **Race on the last slot** — `buyShare` takes a transactional lock; first commits, second is rejected and nothing is charged.
+- **A card fails when the pool fills** — every other card is still charged. The failed card holder is notified to update their payment details. The item isn't bought until every payment is in.
+- **A card holder never pays** — not yet decided. The payments plan must define the time limit, and what happens to the slot and to the other members' money.
+- **Leaving before the pool is full** — a member can leave, because nothing has been charged. Once it's full, they can't.
+- **Price or availability changes** — the operator checks the item before any card is charged, because a pool can take weeks to fill.
+- **Creator's card** — saved and charged like everyone else's.
 
 ---
 
@@ -224,16 +227,16 @@ draft ─publish→ funding ─last slot fills→ funded ─item procured→ act
 
 **1. Join a pool (demand side — most common)**
 ```
-Discover feed → Pool detail (item, size, price/share, slots 3/4, co-owners, deadline)
- → [Buy this share] → verify identity (if first time) → confirm payment
- → "You're in — pool funding complete!" → My Ownership
+Discover feed → Pool detail (item, size, price/share, slots 3/4, co-owners)
+ → [Buy this share] → verify identity (if first time) → save card and agree to be charged when full
+ → "You're in" → My Ownership
 ```
 
 **2. Create a pool (supply side — origination)**
 ```
-Create → category (bag/shoes) → item details (name, brand, photos, size if shoes, condition)
+Create → category (bag/shoes) → item details (name, brand, photos, optional product link, size if shoes, condition)
  → target price + owner_count (2/3/4) → review your share cost
- → verify identity → pay your share → live in Discover as "1/N filled"
+ → verify identity → save card → live in Discover as "1/N filled"
 ```
 
 **3. Use the item (post-funding — the payoff)**
@@ -268,7 +271,7 @@ Then a **Get started / I already have an account** fork.
 ### UX direction principles
 - **Trust is the product** — every pool card leads with co-owner avatars + ratings and a clear funding bar.
 - **Size impossible to miss** on shoe pools (big badge on the card).
-- **The funding bar is the emotional core** — "3/4 filled, £6,000 committed," ticking up live via realtime.
+- **The funding bar is the emotional core** — "3 of 4 filled," ticking up live via realtime.
 - **Two-sided, one app** — creating and joining live side by side; no separate seller mode.
 - **Browse before you verify** — the feed is the salesperson; verification appears exactly when the user taps "Buy this share."
 
@@ -335,14 +338,14 @@ One discipline, two payoffs (Android + custom-BE migration). Adopted now as bind
 | Stripe webhook missed/duplicated | All money ops **idempotent**, keyed on Stripe event ID + ledger; replay never double-charges/refunds |
 | Last-slot race | Transactional lock in `buyShare`; loser rejected before any charge |
 | Payment declines mid-join | Slot never granted, nothing held, clear retry prompt |
-| Refund fails on cancellation | Retried from append-only ledger, flagged to operator; owner sees "refund pending," not silence |
+| Refund fails | Retried from append-only ledger, flagged to operator; owner sees "refund pending," not silence |
 | Verification fails/pending | Money action blocked with a clear state, not a dead end |
 | Realtime drops | App reconnects and refetches; funding bar reconciles from DB, never trusts stale socket state |
 | Offline | Reads from cache where safe; **all writes require connectivity** — never queue a money action locally |
 
 **Testing strategy:**
-- **Edge Functions (highest priority)** — integration tests against **Stripe test mode** for every money path: join → escrow → fund → settle, and join → deadline → refund-all. Explicitly test the oversell race and webhook idempotency.
-- **Invariants as tests** — "never oversell," "ledger sums to escrow balance," "refund is idempotent," "equal-time allowance never exceeded."
+- **Edge Functions (highest priority)** — integration tests against **Stripe test mode** for every money path: join → card saved → pool full → charge all → settle, and one card failing while the others are charged. Explicitly test the oversell race and webhook idempotency.
+- **Invariants as tests** — "never oversell," "ledger sums to money taken," "refund is idempotent," "equal-time allowance never exceeded."
 - **iOS** — unit tests on view models (funding math, entitlement/allowance calc, booking validation).
 - **Pre-real-money gate** — full end-to-end run on Stripe test cards before any live transaction.
 - **No snapshot tests** at this stage.
