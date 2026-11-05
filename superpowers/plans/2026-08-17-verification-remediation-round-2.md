@@ -1169,11 +1169,65 @@ locally."
 
 ### Task 10: A cold launch offline must not sign the user out
 
-Added 2026-10-13 from the Task 5 review. Same class as F5, not introduced by this plan. **Not yet briefed** — steps to be written before dispatch.
+Added 2026-10-13 from the Task 5 review. Same class as F5, not introduced by this plan. **Done 2026-10-13** (`7264b9a`, `7f65007`); the brief in the SDD workspace superseded the direction below.
 
 `RootView.swift:50-58`: with an expired access token (≈1h since last use) and no network, `currentUser` throws (the refresh fails), `user = nil`, and `coordinator.start(nil)` routes to `.auth`. `sessionChanges` does not rescue it: the client uses the default `emitLocalSessionAsInitialSession: false`, so `initialSession` is itself a refreshing read and emits nil. It corrects only when a later auto-refresh succeeds after the connection returns.
 
 **Direction:** when the read throws, route on the locally stored session (`client.auth.currentSession`, no network), or set `emitLocalSessionAsInitialSession: true` and check what that changes for every `sessionChanges` consumer. Decide by reading the 2.54.1 source, not the docs.
+
+---
+
+## Final-review fix round (added 2026-10-14)
+
+**Done 2026-11-05** (iOS `5d1a645..dda5ed4`). A closing review over the round added two changes beyond the tasks below. By the user's decision, "Verify identity" is hidden while the status read has failed. A read cancelled because its view went away is no longer reported as a failure.
+
+Two reviews ran over the whole branch (iOS `5045c9c..f13e045`, backend `d143e4f..22f0bad`): a whole-branch review and a silent-failure hunt. Every finding F1–F9 and Task 10 is fixed in the final state. They did find the gaps below. Items marked **pre-existing** predate this branch; the user chose to fix them here because they are the same "a failed read is not evidence" class. Run Tasks 11–14 in order. Each depends on the previous head, and 13 and 14 both touch `VerificationViewModel`.
+
+### Task 11: Pin `SupabaseAuthRepository` against the real SDK
+**FBM-1.** Reverting `currentUser` to `try?` passes all 210 tests: every view-model test mocks the repository, so the line that separates "the check failed" from "nobody is signed in" can regress silently. Build a test harness: a real `SupabaseClient`, in-memory `AuthLocalStorage` and a `URLProtocol` stub. Use it to pin `currentUser` and `storedUser` for these cases: offline, a cleanup-code rejection, and a valid stored session.
+
+### Task 12: A server that refuses the session is not "offline"
+**K2.** Task 10's fallback catches every error. A refresh rejected with a code outside the SDK's `sessionCleanupErrorCodes` (`user_banned`, `user_not_found`) leaves the user signed in on screens whose reads all fail, with no route to sign in. Treat a 4xx carrying GoTrue's `X-Sb-Error-Code` as "no session": clear the session locally and return nil. Keep the fallback for transport failures, 5xx, 408, 429, `conflict` and any 4xx without that header, which is how a gateway answers. Also map `AuthError.api` in `SupabaseProfileRepository`.
+
+### Task 13: Verification view model — the remaining honesty gaps
+- **FBM-2:** `load()`'s `actionError` clear is untested. Deleting it fails no test.
+- **FBM-3:** retrying from `.failed` gives no feedback (a Task 4 regression).
+- **M1:** after `notSignedIn` the poll stops, but the screen still says it is watching.
+- **M2:** a poll that never got an answer always blames the service, even when the device is offline.
+- Two stale comments: `SupabaseVerificationRepository:75-78` and `VerificationViewModel:139-143`.
+
+### Task 14: Screens that render a failed read as an answer (pre-existing)
+- **H1:** on the Profile tab, a `.failed` status shows "Unverified" and a live "Verify identity" button with no error.
+- **M3:** in onboarding, a `.failed` load hides Skip and strands the user.
+- One stale comment: `MainTabView`'s sign-out comment still says a failed sign-out leaves the user signed in, which Task 5's review disproved.
+
+### Follow-ups, deliberately not in this plan
+- The `@discardableResult` on the wrong declaration.
+- The pre-existing "no async operations" warning.
+- The `URLError` connectivity list, copied in three places.
+- A test for the `mappingErrors` wrapper.
+- The refusal codes hand-kept in both backend and iOS. The fix is for the backend to send `retryable`.
+- `try?` on `latestRejection`.
+- Profile `save()` ignores mapped errors.
+- `rejectsSession` treats `hook_timeout` and `hook_payload_*` as refusals. Exclude them before anyone enables an HTTP access-token hook, or a hook outage signs out every user who refreshes during it.
+- A mid-session refusal does not clear the session until the next launch.
+- The offline sign-out message ("Signed out on this device…") is set but not visible: `SignUpView` renders `formError` only on its email step, and its mode reset can clear it. Showing it changes a settled screen.
+- A failed `load()` over an answer replaces it with `.failed`, and a failed foreground read cancels the poll and resets its budget. `refresh()` keeps the known-good state instead. This predates the branch.
+- If local session removal fails while the server is reachable, the app reports a clean sign-out with the session still stored. The SDK swallows the failure.
+- An expired token during an auth outage makes the poll say "sign in again": the SDK sends the unusable token, the function answers 401, and `SupabaseVerificationRepository` maps that to `.notSignedIn`.
+- The pending screen says "there's nothing else for you to do" directly above "Please sign in again to continue" after a poll stops on an expired session.
+- Skip disappears while an onboarding retry is in flight, so a stalled read leaves no way out until the timeout.
+- The badge split and the Skip condition have no lasting test, so they can regress silently. There is no UI test target.
+- `SupabaseAuthRepositoryTests`' harness answers `/logout` with the refresh refusal, where real GoTrue answers 403 `bad_jwt`. `StubURLProtocol.respond(with:)` is unused.
+- Pre-launch check: confirm hosted Supabase passes `X-Sb-Error-Code` through. `Config/Release.xcconfig` still points at 127.0.0.1, so no hosted target exists yet.
+- Pre-launch check: run the offline cold-launch and failed-read screens end to end. They were rendered from mocks, not driven in the running app.
+- PostgREST JSON 5xx errors map to `.unknown`.
+- `load()` silently drops overlapping calls.
+- A failed foreground re-read discards a good `.pending`.
+- A keychain read before first unlock reads as no session; this sits at SDK level.
+- Backend logging gaps in `sync-verification-status` and `create-verification-session`.
+- A mid-session refresh rejection shows "sign in again" with no sign-in route.
+- A manual offline cold-launch check before release.
 
 ---
 
