@@ -44,7 +44,7 @@ The behavioural insight: people want **access** to luxury more than constant **p
 - **Creator is automatically owner #1** and commits their share on publish (skin in the game).
 - **Size is load-bearing for shoes** — for wearables, "same size" is effectively a join requirement; the size badge must be impossible to miss. Bags are size-agnostic.
 - **No term:** ownership is indefinite. An owner keeps their share until they choose to sell it.
-- **Time allocation:** equal entitlement between owners (the exact allowance, such as days per year, is decided in the booking plan), booked on a shared calendar, **plus a per-use fee** per booking, set by the platform.
+- **Time allocation:** equal time between owners under a fair use policy, booked on a shared calendar. No allowance number is shown to owners. How fair use is enforced is decided in the booking plan. **Plus a per-use fee** per booking, set by the platform: £5 for now, to be made configurable in a future update.
 - **Exit reality:** shares are (post-MVP) tradeable but depreciate — a share is a stake in a *used* asset, so owners may not recover full value. Framed as "buy access, recover some value later," not an investment.
 
 ---
@@ -242,7 +242,7 @@ Create → category (bag/shoes) → item details (name, brand, up to 4 photos, o
 
 **3. Use the item (post-funding — the payoff)**
 ```
-My Ownership → item → Calendar (remaining allowance e.g. 68/91 days, others' bookings greyed)
+My Ownership → item → Calendar (equal time under fair use, no number shown, others' bookings greyed)
  → select dates → per-use fee + deposit → confirm & pay
  → booking confirmed → item ships from hub → status card → after return → rate co-owners
 ```
@@ -368,4 +368,5 @@ This spec covers the **consumer iOS app + backend**. The following are **sibling
 ---
 
 ## Open Questions / To Confirm
-- None outstanding at design level. Pending: user review of this written spec, then implementation planning.
+- The fair use policy needs writing, and how it's enforced is decided in the booking plan.
+- The per-use fee needs a real figure and a way to configure it. £5 is the working figure.
