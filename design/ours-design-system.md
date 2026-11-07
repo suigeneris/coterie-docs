@@ -12,7 +12,7 @@ throughout the repositories (`coterie-ios`, `coterie-backend`, `coterie-docs`, b
 which is chosen.
 
 **Revised 2026-11-07:** a review of this document against the `OursDesignSystem` package
-(`coterie-design` PR #3) settled each difference on UI/UX grounds rather than by which side
+(`coterie-design` PRs #3 and #4) settled each difference on UI/UX grounds rather than by which side
 was older. Each change is recorded inline under **Revised 2026-11-07**.
 
 **Provenance:** the plates are stamped *Version 1.0, May 2025*. The previous markdown
