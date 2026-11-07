@@ -11,6 +11,10 @@ throughout the repositories (`coterie-ios`, `coterie-backend`, `coterie-docs`, b
 `com.coterie.app`). The final product name is undecided. Nothing in this document depends on
 which is chosen.
 
+**Revised 2026-11-07:** a review of this document against the `OursDesignSystem` package
+(`coterie-design` PR #3) settled each difference on UI/UX grounds rather than by which side
+was older. Each change is recorded inline under **Revised 2026-11-07**.
+
 **Provenance:** the plates are stamped *Version 1.0, May 2025*. The previous markdown
 (`ours-design-system-v2-ORIGINAL.md`, retained for reference) was a later expansion whose
 colour and type values diverged from the plates. On a direct conflict, **the plates win**.
@@ -47,7 +51,9 @@ A calm, confident palette inspired by heritage, nature and timeless luxury.
 | `ink` | `#111111` | Primary text |
 | `slate` | `#4B4B4F` | Secondary text |
 | `stone` | `#6E6E6E` | Tertiary text, metadata, placeholders |
-| `mist` | `#E5E5E7` | Borders and dividers |
+| `mist` | `#E5E5E7` | Decorative borders and dividers — never the edge of a control |
+| `outline` | `#86868A` | Resting border of an interactive control |
+| `focus` | `#8F64C3` | Border of a focused input, and the text caret |
 
 ### Surfaces
 
@@ -64,7 +70,7 @@ A calm, confident palette inspired by heritage, nature and timeless luxury.
 | `success` | `#1E7A5E` | Success and confirmation |
 | `warning` | `#8A6410` | Warning and caution |
 | `error` | `#C62828` | Errors and destructive actions |
-| `info` | `#507582` | Neutral informational messages |
+| `info` | `#4A6C78` | Neutral informational messages |
 
 ### Usage
 
@@ -74,6 +80,14 @@ A calm, confident palette inspired by heritage, nature and timeless luxury.
 - **Lavender is used sparingly**, for highlights and moments of delight.
 - **Yellow is for attention badges only** — availability counts, "Popular", "Limited".
 - **Do not use forest as the semantic success colour.** They are different jobs.
+- **`outline` marks a control, `mist` decorates.** A white control on cream is 1.11:1, so its
+  border is the only thing that shows it is there. Fields, text areas, unselected chips and
+  other white controls take `outline`; card hairlines, dividers and tracks take `mist`.
+- **Each lilac has one job.** `lavender` is a backdrop that carries content (the ownership
+  card, the feature badge). `lavenderDeep` is a lilac seen as a shape on cream (the onboarding
+  card stack). `periwinkle` is only ever layered with `lavenderDeep`. They sit 1.08–1.24:1 from
+  one another, so they differ by hue alone: **no lilac marks a state**, and no set of tones
+  uses two.
 
 ### Contrast
 
@@ -89,7 +103,10 @@ UI components **3:1**.
 | `white` on `forest` | 12.09 |
 | `ink` on `lavender` / `yellow` | 15.49 / 14.11 |
 | `forest` on `lavender` / `yellow` | 9.92 / 9.03 |
-| `success` / `warning` / `error` / `info` on `cream` | 4.74 / 4.85 / 5.08 / 4.51 |
+| `success` / `warning` / `error` / `info` on `cream` | 4.74 / 4.85 / 5.08 / 5.12 |
+| `outline` on `surfaceBase` / `cream` (UI, 3:1) | 3.63 / 3.28 |
+| `focus` on `surfaceBase` / `cream` (UI, 3:1) | 4.39 / 3.97 |
+| `stone` on `disabled` (disabled label, exempt) | 4.05 |
 
 **Lavender, `lavenderDeep`, periwinkle and yellow are fill colours only.** Yellow measures **1.34:1** against white — it
 can never be text, an icon, or a thin line. Always place `ink` or `forest` on top of them.
@@ -97,14 +114,25 @@ can never be text, an icon, or a thin line. Always place `ink` or `forest` on to
 > **Reconciliation.** Three plate tokens failed the WCAG AA commitment made in plate 13 and
 > have been darkened along their own hue to the minimum passing value against `cream`:
 > `stone` `#A3A3A3` → **`#6E6E6E`** (was 2.28:1 on cream), `warning` `#D4A017` → **`#8A6410`**
-> (was 2.38:1 on white), `info` `#557C8A` → **`#507582`** (was 4.09:1 on cream). `info` at
-> 4.51:1 is marginal; darken further if you want headroom.
+> (was 2.38:1 on white), `info` `#557C8A` → `#507582` (was 4.09:1 on cream).
+>
+> **Revised 2026-11-07 — `info`** darkened again along its hue, `#507582` → **`#4A6C78`**:
+> 4.51:1 on cream was the bare minimum, and `info` now carries text and a banner edge on both
+> grounds. 5.12:1 on cream, 5.66:1 on white. Closes open question 2.
+>
+> **Revised 2026-11-07 — `outline`.** §11 drew a resting field's border in `mist`, 1.26:1 on
+> white and 1.14:1 on cream — the same "a border that cannot be seen" problem `focus` was
+> added to fix, at rest instead of in focus. `outline` (`#86868A`, cool like `mist` and
+> `slate`) clears 3:1 on both grounds. It falls between two steps of the reference ramp
+> (`#6E6E73`, `#8F8F94`); the lighter step fails on cream at 2.91:1.
 >
 > **Yellow** is used in plates 03 and 14 but never named or given a hex; `#F2E074` was
 > supplied directly. **Periwinkle** was dropped during reconciliation because no plate named
 > it, then **reinstated 2026-08-11** at `#C9D3F3` — the approved onboarding design pairs it
-> with `lavender` in the layered card stack. Fill only, and never used to distinguish a state
-> from `lavender`: they measure 1.02:1 against each other.
+> with `lavenderDeep` in the layered card stack. Fill only, and never used to distinguish a
+> state from another lilac: it measures 1.22:1 against `lavender` and 1.08:1 against
+> `lavenderDeep`. *(Corrected 2026-11-07: this note previously said it pairs with `lavender`
+> and measures 1.02:1 against it.)*
 >
 > **Do not sample colours from the plate images.** They are downscaled screenshots and every
 > labelled swatch disagrees with its own pixels: forest `#0F3D34` samples as `#0B4335`, error
@@ -218,6 +246,27 @@ A **4pt base grid**, with **8pt increments as the default rhythm**.
 - **Card** — 16–24pt internal padding
 - **Avatar group** — 8pt between avatars, trailing `+` affordance
 
+### Fixed sizes
+
+Specified once as tokens, never as literals in a component. All on the 4pt grid.
+
+| Token | Value | Use |
+|---|---|---|
+| `buttonHeight` · `fieldHeight` | 56pt | Buttons; single-line fields |
+| `minimumTouchTarget` | 44pt | Every interactive element, both dimensions |
+| `progressTrack` | 8pt | Funding bar and step segments |
+| `overlayButton` | 28pt | Small circular button over content (remove photo), inside a 44pt hit area |
+| `avatar` | 32pt | Avatars |
+| `iconTile` | 48pt | Icon tile beside text (information card) |
+| `figureDisc` | 64pt | Disc holding a short figure (ownership fraction) |
+| `statusDisc` | 72pt | Status icon on a full-screen state |
+| `thumbnail` | 112pt | Media in a product row |
+| `photoTile` | 160pt | Default photo tile |
+
+Stroke widths: **1pt** for resting edges and hairlines, **1.5pt** for dashed outlines (6 on,
+4 off) and rings, **2pt** for any border that signals state (focus, error, success, a pressed
+secondary button).
+
 ### Onboarding screen spec
 
 Taken directly from plate 03 and used by the intro carousel:
@@ -247,11 +296,16 @@ Taken directly from plate 03 and used by the intro carousel:
 
 | Token | Value | Use |
 |---|---|---|
-| `radiusXs` | 8pt | Small elements, inputs, chips |
-| `radiusSm` | 12pt | Buttons, small cards, alerts |
-| `radiusMd` | 16pt | Standard cards, inputs, sheets |
+| `radiusXxs` | 4pt | Progress tracks and other thin bars |
+| `radiusXs` | 8pt | Small elements: chips, badges, skeletons |
+| `radiusSm` | 12pt | Small cards, alerts and message banners, media in cards |
+| `radiusMd` | 16pt | Buttons, inputs, standard cards, sheets |
 | `radiusLg` | 20pt | Large cards, modals |
 | `radiusXl` | 28pt | Hero cards, onboarding cards |
+
+> **Revised 2026-11-07.** The plate listed buttons under `radiusSm` and inputs under both
+> `radiusXs` and `radiusMd`; §05 and §11 had already settled both on 16pt, so the table now
+> says so. `radiusXxs` is new, for 8pt-tall progress tracks, where 8pt would make a pill.
 
 Use `radiusMd` (16pt) for the majority of surfaces. Reserve larger radii for elevated or
 expressive moments where it adds impact.
@@ -265,7 +319,7 @@ expressive moments where it adds impact.
 All buttons: **56pt height, `radiusMd` (16pt), 24pt horizontal padding, Inter Semibold 16pt**,
 minimum touch target **44×44pt**. Every type defines **default, pressed, disabled and loading**.
 
-**Labels are sentence case** — `Next`, `Get started`, `View collection`, `Remove item`.
+**Labels are sentence case** — `Next`, `Get started`, `View coterie`, `Remove item`.
 
 > **Superseded 2026-08-11 — button label case.** Plate 05 draws every label lowercase
 > (`next`, `view collection`, `learn more`, `remove`), and the app matched that until the
@@ -277,13 +331,17 @@ minimum touch target **44×44pt**. Every type defines **default, pressed, disabl
 |---|---|---|---|
 | **Primary** | `forest` fill, white label | Darker fill | The main action on a screen |
 | **Secondary** | Transparent, `forest` outline and label | Outline thickens | Important but not primary |
-| **Tertiary / text** | No container, label + chevron | Label darkens | Optional actions and links |
+| **Tertiary / text** | No container, label; trailing chevron only when it navigates | Label darkens to `ink` | Optional actions and links |
 | **Destructive** | Pale red fill, `error` label | Solid `error` fill, white label | Irreversible or removing actions |
 
 Loading state replaces the label with a spinner and keeps the container.
 Disabled uses `disabled`/`mist` fill with `stone` label.
 
 **Avoid multiple primary buttons in the same decision group.**
+
+> **Revised 2026-11-07 — tertiary chevron.** The plate draws every tertiary with a chevron,
+> but on an action such as `Skip` (§03) it promises a destination that does not exist. The
+> chevron is opt-in, for tertiaries that navigate (`View all`).
 
 ### Federated sign-in buttons (exception)
 
@@ -294,7 +352,7 @@ but they are still **our** buttons, not the ones each provider publishes.
 | Property | Value |
 |---|---|
 | Fill | `surfaceBase` (white) |
-| Border | `mist`, 1pt |
+| Border | `outline`, 1pt (*revised 2026-11-07* from `mist`: a white button on cream needs a visible edge, like every other white control) |
 | Label | `ink`, `Continue with Apple` / `Continue with Google` |
 | Mark | `apple.logo` SF Symbol / Google's official mark, unaltered |
 | Geometry | 56pt height, `radiusMd`, `button` text style |
@@ -315,7 +373,7 @@ is wired up, if review asks for it.
 
 | Size | Use |
 |---|---|
-| 32pt | Inline actions — favourite, share, bookmark |
+| 32pt | Inline actions — favourite, share, bookmark. Visible size only: the hit area is still 44pt |
 | 40pt | Prominent actions |
 | 56×56pt | Floating action |
 
@@ -330,13 +388,19 @@ surfaces over heavy borders, and don't stack card layers when spacing alone crea
 
 | Card | Contents |
 |---|---|
-| **Product (vertical)** | Image, title (serif), ownership line, avatar group, price in `forest`, availability pill, favourite action |
+| **Product (vertical)** | Grids and discovery. Image, title (serif), ownership line, avatar group, price in `forest`, availability pill, favourite action. *Not built yet* |
+| **Product row (horizontal)** | Lists. 112pt media left, serif title, subtitle, price in `forest`, footer slot. Built as `OursProductCard` |
 | **Collection (horizontal)** | Image, name, item count and co-owner count, avatar group, chevron |
-| **Ownership** | `lavender` surface, ownership fraction in a circle, status, next payment, chevron |
+| **Ownership** | `lavender` surface, ownership fraction in a **`forest` disc with a white figure**, status, next payment, chevron |
 | **Information** | Quiet neutral surface, icon, title, supporting detail, chevron |
 
 Ownership cards are the one place brand colour carries a whole surface. Information cards stay
 visually quiet.
+
+> **Revised 2026-11-07 — ownership disc.** The disc was `lavenderDeep` on the `lavender` card,
+> 1.13:1, so its edge barely showed and the fraction floated. A `forest` disc (12.09:1 for the
+> white figure) makes ownership — what the card is about — the first thing read. Card layouts
+> are named by layout (vertical, row), not by content, so one shape can serve several kinds.
 
 ![Cards and surfaces](assets/06-cards-surfaces.png)
 
@@ -349,7 +413,7 @@ Mostly flat. Elevation exists only to clarify hierarchy.
 | Token | Shadow | Border | Use |
 |---|---|---|---|
 | `elevationNone` | none | `mist` 1pt | Backgrounds, sections, dividers |
-| `elevationSm` | `0 2px 8px rgba(0,0,0,0.06)` | `mist` 1pt | Product cards, inputs, small controls |
+| `elevationSm` | `0 2px 8px rgba(0,0,0,0.06)` | `mist` 1pt | Product cards, small raised controls |
 | `elevationMd` | `0 8px 24px rgba(0,0,0,0.10)` | none | Sheets, modals, dropdowns, overlays |
 
 - Use the lowest elevation that achieves clarity.
@@ -359,6 +423,9 @@ Mostly flat. Elevation exists only to clarify hierarchy.
 - **Never use shadow as the primary visual style.**
 - In dark mode, shadows remain subtle and reduce in intensity.
 
+> **Revised 2026-11-07.** Inputs no longer take `elevationSm`. A shadowed text field is not an
+> iOS convention, and the `outline` border (§11) already marks the field.
+>
 > **Reconciliation.** Plate 06 lists the card shadow as `0 4pt 16pt rgba(0,0,0,0.06)`, which
 > conflicts with plate 07's `elevationSm`. Plate 07 wins.
 
@@ -384,8 +451,13 @@ Mostly flat. Elevation exists only to clarify hierarchy.
 | 32pt | Feature or prominent use |
 | 44pt+ | Minimum interactive touch area, not glyph size |
 
-Use `forest` for active and selected states, `ink` for normal functional icons. Icons support
+Use `forest` for active and selected states, `ink` for icons you act on, and `slate` for
+supporting icons — chevrons, an information card's icon, avatar placeholders. Icons support
 meaning — they should not become decoration.
+
+A glyph inside a small control (the 12pt `xmark` in a 28pt remove button) sits below this scale
+on purpose; 16pt would crowd it. *(Revised 2026-11-07: the package had used 14 / 22 / 28 and now
+follows 16 / 24 / 32.)*
 
 **Common set (24pt):** home, search, heart, bag, user, settings, message, notification, share,
 bookmark, calendar, card, lock, check, plus, minus, close, chevron right, filter, more.
@@ -544,8 +616,9 @@ confirmation. Support leading icons and trailing icon buttons such as password r
 Helper text sits below the field. Show a character count where a limit applies.
 
 **56pt height** (matching buttons, so a form and its primary action share one rhythm),
-**`radiusMd` (16pt)**, 16pt horizontal padding. Border is `mist` at 1pt at rest and 2pt when
-focused or in error. **Error outranks focus** — a field the user is fixing keeps showing what
+**`radiusMd` (16pt)**, 16pt horizontal padding. Border is **`outline` at 1pt at rest** and 2pt
+when focused (`focus`), in error (`error`) or confirmed (`success`). Disabled fields keep a
+`mist` border on a `disabled` fill. **Error outranks focus** — a field the user is fixing keeps showing what
 is wrong while they type in it.
 
 > **Resolved 2026-08-11 — input radius.** §04 lists inputs under both `radiusXs` (8pt) and
@@ -555,7 +628,7 @@ is wrong while they type in it.
 > take: 16pt.
 
 > **Added 2026-08-11 — `focus`.** "Focused uses a lavender border" had no usable colour behind
-> it: `lavender` measures 1.16:1 on white, so a border drawn in it cannot be seen, well short
+> it: `lavender` measures 1.22:1 on white, so a border drawn in it cannot be seen, well short
 > of the 3:1 WCAG asks of a control boundary. `focus` (`#8F64C3`) is the same hue taken down
 > to 4.39:1. The pale lavenders stay what they are — backing tints, not borders.
 
@@ -577,7 +650,8 @@ toggles. Selected chips use `forest` fill with a white label.
 
 ### File upload
 
-Dashed lavender drop zone. State supported formats and size limit. Show the uploaded file with
+Dashed `stone` drop zone, 1.5pt, on `surfaceBase`. *(Revised 2026-11-07 from "dashed
+lavender": §01 rules out lavender as a thin line, and at 1.22:1 the dash would not show.)* State supported formats and size limit. Show the uploaded file with
 name, size and a remove action.
 
 ### Layout
@@ -624,6 +698,7 @@ Use standard iOS easing curves — ease in, ease out, ease in-out.
 | Favourite / save | Scale + burst · 250ms · ease out |
 | Ownership progress | Arc draw · 300ms · ease out |
 | Image transition | Crossfade · 250ms · ease in-out |
+| Feedback delay | Show nothing for the first **400ms** of a wait, then fade in · 250ms |
 
 ### Do not animate
 
@@ -691,6 +766,13 @@ supportive.
 Explain what happened and what to do next. Prefer contextual errors over full-screen. Offer a
 retry. Pair colour with icon and text.
 
+### Inline message (banner)
+
+Tone colour for the text and icon, `body-sm`, 12pt padding, `radiusSm`, and a **1pt border in the
+tone colour**. Error sits on `errorSurface`, warning on `peach`, info and success on
+`surfaceBase`. Every ground is within 1.11:1 of `cream`, so without the border a banner on the app
+background reads as loose text. VoiceOver reads the tone as a word first ("Error.").
+
 ### Offline
 
 Keep cached content visible, indicate it may be out of date, and provide retry when an action
@@ -709,7 +791,7 @@ or irreversible decisions.
 
 ### Destructive
 
-Clearly state the consequence. Use specific labels — **Remove item**, **Leave collection** —
+Clearly state the consequence. Use specific labels — **Remove item**, **Leave coterie** —
 never Yes/No. Present as an action sheet where appropriate.
 
 ### Progress
@@ -748,14 +830,16 @@ the highest-stakes flow in the product and gets the clearest possible messaging.
 
 1. **Greyscale `50` step** — could not be read reliably from plate 01. Confirm the value or
    confirm the ramp is reference-only and can be dropped.
-2. **`info` at 4.51:1 on `cream`** is the computed minimum and leaves no headroom. Darken
-   further, or restrict `info` text to white surfaces.
+2. ~~`info` at 4.51:1 on `cream`~~ — **decided 2026-11-07: darkened to `#4A6C78`**, 5.12:1 on
+   cream. See §01.
 3. ~~Dark mode~~ — **decided 2026-08-11: the app is light-only.** No dark palette will be
    defined for now. The app sets `UIUserInterfaceStyle: Light`, so it renders light even on a
    device in dark mode. Without that lock the tokens would stay light while system chrome —
    text fields, sheets, the keyboard, default label colours — flipped dark, giving a mixed
    result worse than either mode. Plate 07's note about dark-mode shadows is therefore
    dormant, not lost. Revisit before public launch: light-only is increasingly conspicuous.
+   The package is ready for it: each token can take a dark value, and the contrast tests
+   already run in both appearances.
 4. **Onboarding copy** — plate 03's *"luxury, together"* now supersedes the three-slide
    carousel copy in the product spec §6. The product spec needs updating to match, or a
    decision that the plate copy applies only to the first slide.
