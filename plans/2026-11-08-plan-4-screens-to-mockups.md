@@ -25,6 +25,7 @@ Made with the user while reviewing the mock-ups (2026-11-07 and 2026-11-08).
 | Size badge | A new, larger size badge: a yellow strip attached under the thumbnail on Discover cards (never laid over the photo, which real products fill), and beside the name on the detail screen (Task 1) |
 | Ownership card | `OursOwnershipCard` as merged in `coterie-design` #8: share ring, one status line in words, co-owner avatars, no badges, no money |
 | Badges | Status in words; a badge only asks for action or flags a problem. The detail screen keeps its "Full" and "Your share" badges as mocked |
+| Item price | Shown as "Item price £2,000" wherever the total appears: Discover cards, detail, buy sheet, review. Never "RRP": the creator types it unchecked, and an RRP label implies a reference price (CMA and ASA rules) |
 | Payment | Not built. Every place payment will go shows the dashed placeholder box (Task 5) |
 | Dark mode | None. The app stays locked to light |
 
@@ -84,7 +85,7 @@ public enum OursChipSize: Sendable { case regular, large, tile }
 **Changes from plan 3, Task 9:**
 - **Header:** title "Discover" (`h1`, `forest`) as before, now with a subtitle under it in `body` `slate`: "Co-own a bag or a pair of shoes with up to three other people." Shown in every state except failed.
 - **Card:** keep `OursProductCard`'s layout (112pt photo left, brand, serif name, price), with these changes:
-  - Price reads `£666.67` in `body-lg-strong` `forest`, followed by "per share" in `body-sm` `slate`.
+  - Price reads `£666.67` in `body-lg-strong` `forest`, followed by "per share" in `body-sm` `slate`. Under it, in `body-sm` `stone`: "Item price £2,000" (`targetAmount`, formatted without pence when whole).
   - The size badge moves off the footer and **under the photo**: a 112pt-wide column of the photo then `OursSizeBadge(size, emphasis: .strip)`, clipped together to one `radiusSm` tile with a 1pt `mist` hairline, so photo and strip read as one piece. It never overlaps the photo. Shoe cards are about 32pt taller than bag cards; that's expected. Bags show none.
   - The footer is one row and a bar: "N of M filled" (`body-sm` `slate`) on the left, `OursAvatarGroup(people:, showsOpenPlace: !isFull)` on the right, then the 8pt funding track full width underneath. Build it with `OursFundingBar`'s track and the label row above it.
 - **End of list:** after the last card, centred, `body-sm` `stone`: "That's every coterie open right now." Only when the list has loaded and isn't empty.
@@ -154,7 +155,7 @@ extension Pool {
 2. Thumbnail row if there's more than one photo: 64pt, `radiusSm`, 8pt apart. The selected one has a 2pt `forest` ring, the others a `mist` hairline. Tapping switches the hero.
 3. `brand` in `body-sm` `stone`, then `itemName` in `h1`. For "Full", the "Full" (`success`) badge sits right-aligned on the brand row; for an owner, "Your share" (`feature`).
 4. Shoes only: `OursSizeBadge(size, emphasis: .detail)` with "Every owner wears this size. Only join if it's yours." beside it in `body-sm` `slate`.
-5. `pricePerShare` in `h3` `forest`, then "per share" in `body` `slate`. Under it, in `body-sm` `stone`: "£2,000 item, split between 3 owners" (`targetAmount`, `ownerCount`).
+5. `pricePerShare` in `h3` `forest`, then "per share" in `body` `slate`. Under it, in `body-sm` `stone`: "Item price £2,000" (`targetAmount`).
 6. Funding: "N of M filled" (`body-sm` `slate`) and the track.
 7. **Co-owners** (`body-lg-strong`): one row per owner, a 32pt avatar and their `displayName` (`body`). The creator (`creatorID`) also gets "Started this coterie" in `body-sm` `stone`. Then one row per open place: the open-place avatar and "Open place" in `body` `stone`. Under the rows: a `checkmark.shield` icon in `forest` and "Everyone in a coterie has verified their identity." (`body-sm` `slate`).
 8. **About this item** (`body-lg-strong`) and `description` in `body` `slate`, if not blank.
@@ -190,7 +191,7 @@ extension Pool {
 **Screenshots:** 10 (confirm), 11 (working), 12 (failed), 13 (you're in), 14 (took the last place).
 
 **Buy sheet (changes from plan 3, Task 10):**
-- Keep the title, the item row (64pt photo, name, brand, size badge), and the fact rows.
+- Keep the title, the item row (64pt photo, name, brand, size badge), and the fact rows, adding **"Item price"** (`targetAmount`) as the first row, above "Your share (1 of N)".
 - **New: payment placeholder** before the banner. A box with a 1.5pt dashed `stone` border, `radiusMd`, white, a `creditcard` symbol, "Payment" (`body`, semibold) and "Card details go here in the payments release." (`body-sm` `slate`). Make it its own view, `PaymentPlaceholder(message:)`. The payments plan replaces it.
 - Info banner copy: "Nothing is charged today. Your card is charged once all N places are filled."
 - **Failed:** `actionError` shows as an error banner in place of the info banner. Copy for a network failure: "We couldn't add you to this coterie. Nothing was charged. Check your connection and try again." The primary becomes "Try again", running the same `buy()`.
