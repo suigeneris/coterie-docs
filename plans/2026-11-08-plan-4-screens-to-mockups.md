@@ -22,7 +22,7 @@ Made with the user while reviewing the mock-ups (2026-11-07 and 2026-11-08).
 | No funding deadline, no term, no day count | No deadline, "12 months" or "121 days" anywhere. "Your use: Equal time on a shared calendar" stays |
 | Funding copy | "N of M filled" on Discover cards, the detail screen and "You're in". Never "committed" |
 | New items only | No condition field in the wizard |
-| Size badge | A new, larger size badge, on the photo's top-left corner of Discover cards and beside the name on the detail screen (Task 1) |
+| Size badge | A new, larger size badge: a yellow strip attached under the thumbnail on Discover cards (never laid over the photo, which real products fill), and beside the name on the detail screen (Task 1) |
 | Ownership card | `OursOwnershipCard` as merged in `coterie-design` #8: share ring, one status line in words, co-owner avatars, no badges, no money |
 | Badges | Status in words; a badge only asks for action or flags a problem. The detail screen keeps its "Full" and "Your share" badges as mocked |
 | Payment | Not built. Every place payment will go shows the dashed placeholder box (Task 5) |
@@ -57,8 +57,8 @@ Made with the user while reviewing the mock-ups (2026-11-07 and 2026-11-08).
 
 ```swift
 public struct OursSizeBadge: View {
-    public enum Emphasis: Sendable { case card, detail }
-    public init(_ size: String, emphasis: Emphasis = .card)   // "UK 5"
+    public enum Emphasis: Sendable { case strip, detail }
+    public init(_ size: String, emphasis: Emphasis = .strip)   // "UK 5"
 }
 
 public enum OursChipSize: Sendable { case regular, large, tile }
@@ -66,7 +66,7 @@ public enum OursChipSize: Sendable { case regular, large, tile }
 ```
 
 **Spec:**
-- **Size badge:** `yellow` fill, `ink` text (14.1:1), `radiusXs`. A "SIZE" label in Inter Semibold 11, uppercase, tracking +0.06em, then the value in Inter Bold: 17pt for `.card` (padding 6×10), 24pt for `.detail` (padding 8×14). VoiceOver reads "Size UK 5".
+- **Size badge:** `yellow` fill, `ink` text (14.1:1), `radiusXs`. A "SIZE" label in Inter Semibold 11, uppercase, tracking +0.06em, then the value in Inter Bold. `.strip`: 17pt, full width of its container, 4pt top and bottom, centred, square corners: it sits under a thumbnail and the two share one tile (below). `.detail`: 24pt, padding 8×14, `radiusXs`. VoiceOver reads "Size UK 5".
 - **Chip `.large`:** 56pt tall, value in `h3`, equal widths when placed in a grid. Used for the number of owners.
 - **Chip `.tile`:** 128pt tall, `radiusMd`, a 32pt symbol above the label in `button` style. Used for the category.
 - All three chip sizes keep `OursChip`'s colours: resting `surfaceBase` with a 1pt `outline` border, selected `forest` with a white label.
@@ -85,7 +85,7 @@ public enum OursChipSize: Sendable { case regular, large, tile }
 - **Header:** title "Discover" (`h1`, `forest`) as before, now with a subtitle under it in `body` `slate`: "Co-own a bag or a pair of shoes with up to three other people." Shown in every state except failed.
 - **Card:** keep `OursProductCard`'s layout (112pt photo left, brand, serif name, price), with these changes:
   - Price reads `£666.67` in `body-lg-strong` `forest`, followed by "per share" in `body-sm` `slate`.
-  - The size badge moves off the footer and onto the photo: `OursSizeBadge(size, emphasis: .card)`, 6pt in from the photo's **top-left** corner. Bags show none.
+  - The size badge moves off the footer and **under the photo**: a 112pt-wide column of the photo then `OursSizeBadge(size, emphasis: .strip)`, clipped together to one `radiusSm` tile with a 1pt `mist` hairline, so photo and strip read as one piece. It never overlaps the photo. Shoe cards are about 32pt taller than bag cards; that's expected. Bags show none.
   - The footer is one row and a bar: "N of M filled" (`body-sm` `slate`) on the left, `OursAvatarGroup(people:, showsOpenPlace: !isFull)` on the right, then the 8pt funding track full width underneath. Build it with `OursFundingBar`'s track and the label row above it.
 - **End of list:** after the last card, centred, `body-sm` `stone`: "That's every coterie open right now." Only when the list has loaded and isn't empty.
 - **Empty:** symbol `bag` in the 72pt `lavenderDeep` disc. Title "Nothing to join yet" (`h2`). Body "Be the first. Start a coterie for a bag or a pair of shoes you love, and others can join you." Primary "Start a coterie" calls `startCreating()`.
