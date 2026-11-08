@@ -83,8 +83,8 @@ A calm, confident palette inspired by heritage, nature and timeless luxury.
 - **`outline` marks a control, `mist` decorates.** A white control on cream is 1.11:1, so its
   border is the only thing that shows it is there. Fields, text areas, unselected chips and
   other white controls take `outline`; card hairlines, dividers and tracks take `mist`.
-- **Each lilac has one job.** `lavender` is a backdrop that carries content (the ownership
-  card, the feature badge). `lavenderDeep` is a lilac seen as a shape on cream (the onboarding
+- **Each lilac has one job.** `lavender` is a backdrop that carries content (the feature
+  badge). `lavenderDeep` is a lilac seen as a shape on cream (the onboarding
   card stack). `periwinkle` is only ever layered with `lavenderDeep`. They sit 1.08–1.24:1 from
   one another, so they differ by hue alone: **no lilac marks a state**, and no set of tones
   uses two.
@@ -244,7 +244,8 @@ A **4pt base grid**, with **8pt increments as the default rhythm**.
 
 - **Button** — 56pt height, 24pt horizontal padding, radius 16pt
 - **Card** — 16–24pt internal padding
-- **Avatar group** — 8pt between avatars, trailing `+` affordance
+- **Avatar group** — 8pt between avatars, trailing `+` affordance. Compact variant: 24pt,
+  overlapping by 6pt, 2pt white edge, no `+` (the ownership card)
 
 ### Fixed sizes
 
@@ -257,8 +258,10 @@ Specified once as tokens, never as literals in a component. All on the 4pt grid.
 | `progressTrack` | 8pt | Funding bar and step segments |
 | `overlayButton` | 28pt | Small circular button over content (remove photo), inside a 44pt hit area |
 | `avatar` | 32pt | Avatars |
+| `avatarCompact` | 24pt | Compact avatars, overlapping, as on the ownership card |
+| `shareRing` | 80pt | Share ring around a 62pt circular photo |
 | `iconTile` | 48pt | Icon tile beside text (information card) |
-| `figureDisc` | 64pt | Disc holding a short figure (ownership fraction) |
+| `figureDisc` | 64pt | Disc holding a short figure |
 | `statusDisc` | 72pt | Status icon on a full-screen state |
 | `thumbnail` | 112pt | Media in a product row |
 | `photoTile` | 160pt | Default photo tile |
@@ -369,6 +372,13 @@ Only the label wording is taken from the providers, since both publish a closed 
 Sign in with Apple may need to move to `AuthenticationServices.SignInWithAppleButton` when it
 is wired up, if review asks for it.
 
+### Compact button
+
+44pt tall, sized to its label, `radiusXs` (8pt), `button` text style. For an action that sits
+inside a row or card rather than at the foot of a screen, such as **Book** on an active
+ownership card. Usually secondary (1pt `forest` outline). Always a separate target from the
+card it sits in, never nested inside it.
+
 ### Icon buttons (square)
 
 | Size | Use |
@@ -391,16 +401,31 @@ surfaces over heavy borders, and don't stack card layers when spacing alone crea
 | **Product (vertical)** | Grids and discovery. Image, title (serif), ownership line, avatar group, price in `forest`, availability pill, favourite action. *Not built yet* |
 | **Product row (horizontal)** | Lists. 112pt media left, serif title, subtitle, price in `forest`, footer slot. Built as `OursProductCard` |
 | **Collection (horizontal)** | Image, name, item count and co-owner count, avatar group, chevron |
-| **Ownership** | `lavender` surface, ownership fraction in a **`forest` disc with a white figure**, status, next payment, chevron |
+| **Ownership** | White, elevation small, padding 12. The item's photo inside a **share ring**; the title; **one status line in words**; co-owners as compact avatars. Chevron, or a compact action such as **Book** |
 | **Information** | Quiet neutral surface, icon, title, supporting detail, chevron |
 
-Ownership cards are the one place brand colour carries a whole surface. Information cards stay
-visually quiet.
+Information cards stay visually quiet. Card layouts are named by layout (vertical, row), not
+by content, so one shape can serve several kinds.
 
-> **Revised 2026-11-07 — ownership disc.** The disc was `lavenderDeep` on the `lavender` card,
-> 1.13:1, so its edge barely showed and the fraction floated. A `forest` disc (12.09:1 for the
-> white figure) makes ownership — what the card is about — the first thing read. Card layouts
-> are named by layout (vertical, row), not by content, so one shape can serve several kinds.
+### Ownership card
+
+Three pieces of information, none repeated:
+
+| Piece | Says | Shown as |
+|---|---|---|
+| Share ring | How many places, how many are taken | One arc per place around a 62pt circular photo (80pt ring, 4pt stroke, round caps, 6pt gaps, starting at 12 o'clock). `forest` when taken, `mist` while open. Once full, the arcs close into one `forest` circle, which stays closed |
+| Status line | What is happening, in words | `body-sm` `slate`: "1 place left", "Full · we're buying it", "Ready to book" |
+| Co-owners | Who you share it with | Compact avatars, co-owners only (never you), photo or initials. Alone: "Just you so far" |
+
+No status badges, no share count, no money: the price is on the detail screen. The ring is
+decorative; VoiceOver reads one sentence per card, for example "Puzzle Bag. 1 place left. With
+Amara O." An active coterie shows a compact **Book** button in place of the chevron.
+
+> **Revised 2026-11-08 — ownership card.** The card was a `lavender` surface with a fraction
+> disc, a status badge and "1 of 3 shares". It had no product image, it put lavender on every
+> row, and three of its parts said the same thing. It was redesigned on the review canvas;
+> options explored were a photo row, a lifecycle track and an editorial card, and names in
+> words instead of avatars. Lavender no longer backs it.
 
 ![Cards and surfaces](assets/06-cards-surfaces.png)
 
@@ -803,6 +828,11 @@ Multi-step flows show step progress — "2 of 4". Task progress uses a linear ba
 Short and semantic. Availability — `1/4 available`, `2/4 available`, `Sold out`.
 Status — `Verified`, `New`, `Sold`, `Archived`. Highlights — `Popular`, `Limited`, `Featured`.
 Yellow supports attention-oriented badges; semantic states use semantic colours.
+
+**Status in words; badges only to ask for action or flag a problem.** Where a component can
+say what is happening in a sentence ("1 place left", "we're buying it"), it does, and adds no
+badge. Badges are for a call to act or something gone wrong. *(Added 2026-11-08, from the
+ownership card review.)*
 
 ### Payment & transaction
 
